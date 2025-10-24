@@ -1,0 +1,25 @@
+services:
+  redis:
+    image: redis:7.2-alpine
+    container_name: rag-redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data_dev:/data
+    command: redis-server --appendonly yes
+
+  milvus:
+    image: milvusdb/milvus:v2.3.4
+    container_name: rag-milvus-dev
+    ports:
+      - "19530:19530"
+    volumes:
+      - milvus_data_dev:/var/lib/milvus
+    environment:
+      - COMMON_STORAGETYPE=local
+      - ETCD_USE_EMBED=true  # 明确使用嵌入式 etcd
+    command: ["milvus", "run", "standalone"]
+
+volumes:
+  redis_data_dev:
+  milvus_data_dev:

@@ -1,0 +1,74 @@
+services:
+  redis:
+    image: redis:7.2-alpine
+    container_name: rag-redis-prod
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data_prod:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+    networks:
+      - rag-network
+    healthcheck:  # 添加健康检查
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+
+  milvus:
+    image: milvusdb/milvus:v2.3.4
+    container_name: rag-milvus-prod
+    ports:
+      - "19530:19530"
+    volumes:
+      - milvus_data_prod:/var/lib/milvus
+    environment:
+      - COMMON_STORAGETYPE=local
+      - ETCD_USE_EMBED=true
+      - ETCD_DATA_DIR=/var/lib/milvus/etcd
+      - COMMON_RETENTIONDURATION=60
+    command: ["milvus", "run", "standalone"]
+    restart: unless-stopped
+    networks:
+      - rag-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 120s
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag-app-prod
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - JAVA_OPTS=-Xmx2g -Xms1g -XX:MaxMetaspaceSize=256m
+    depends_on:
+      redis:
+        condition: service_healthy
+      milvus:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - rag-network
+
+volumes:
+  redis_data_prod:
+  milvus_data_prod:
+
+networks:
+  rag-network:
+    driver: bridge
