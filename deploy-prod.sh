@@ -20,6 +20,7 @@ echo "📤 上传文件到服务器..."
 ssh ${REMOTE_USER}@${REMOTE_HOST} "mkdir -p ${REMOTE_DIR}"
 scp -r \
   Dockerfile \
+  .env.prod \
   ${LOCAL_DOCKER_COMPOSE_FILE} \
   target/*.jar \
   ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR}/
@@ -28,14 +29,13 @@ scp -r \
 echo "🐳 在服务器上启动 Docker 服务..."
 ssh ${REMOTE_USER}@${REMOTE_HOST} "
   cd ${REMOTE_DIR}
-  export \$(cat .env.prod | xargs)
   docker-compose -f ${REMOTE_DOCKER_COMPOSE_FILE} down
   docker-compose -f ${REMOTE_DOCKER_COMPOSE_FILE} up -d --build
 "
 
 # 4. 等待服务启动
 echo "⏳ 等待 Milvus 和 Redis 服务启动..."
-sleep 60
+sleep 30
 
 # 5. 检查服务状态
 echo "🔍 检查服务状态..."

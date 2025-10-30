@@ -53,6 +53,8 @@ services:
     container_name: rag-app-prod
     ports:
       - "8080:8080"
+    env_file:
+      - .env.prod  # 显式指定环境变量文件
     environment:
       - SPRING_PROFILES_ACTIVE=prod
       - JAVA_OPTS=-Xmx2g -Xms1g -XX:MaxMetaspaceSize=256m
