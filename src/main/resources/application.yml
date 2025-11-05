@@ -3,30 +3,59 @@ spring:
     active: @activated.properties@  # 根据环境变量动态激活
   application:
     name: rag-knowledge-qa
+  ai:
+    openai:
+      api-key: ${ALIYUN_API_KEY}
+      base-url: "https://dashscope.aliyuncs.com/compatible-mode"
+      embedding:
+        options:
+          model: "text-embedding-v3"
+          dimensions: 1024
+        normalize: true
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        format_sql: true
+  servlet:
+    multipart:
+      max-file-size: 30MB
+      max-request-size: 30MB
+
+aliyun:
+  opensearch:
+    api-key: ${ALIYUN_OPENSEARCH_API_KEY}
 
 tongyi:
-    api-key: ${ALIYUN_API_KEY}  # 在环境变量中配置阿里云apiKey
-    rag-model-config:
-      model: qwen-plus
-      max-tokens: 2000
-      temperature: 0.2
-      top-p: 0.8
-      enable-search: false
-    common-model-config:
-      model: qwen-plus
-      max-tokens: 2000
-      temperature: 0.2
-      top-p: 0.8
-      enable-search: true
-    intent-model-config:
-      model: "qwen-turbo"
-      max-tokens: 500
-      temperature: 0.1
-      top-p: 0.8
-      enable-search: false
+  api-key: ${ALIYUN_API_KEY}  # 在环境变量中配置阿里云apiKey
+  rag-model-config:
+    model: qwen-plus
+    max-tokens: 2000
+    temperature: 0.2
+    top-p: 0.8
+    enable-search: false
+  common-model-config:
+    model: qwen-plus
+    max-tokens: 2000
+    temperature: 0.2
+    top-p: 0.8
+    enable-search: true
+  intent-model-config:
+    model: "qwen-turbo"
+    max-tokens: 500
+    temperature: 0.1
+    top-p: 0.8
+    enable-search: false
 
 # RAG相关配置
 rag:
+  chunk:
+    size: 512
+    overlap: 100
   rag-prompt: |
     # 系统角色
     你是Yuri-Hack公司的智能知识库助手，专注于提供基于企业文档的准确信息。
@@ -58,7 +87,7 @@ rag:
     - 重要信息优先
     - 复杂流程分步骤说明
     - 关键数据或政策编号突出显示
-    
+
   daily-prompt: |
     你是一个友好、专业的AI助手，负责处理日常对话和通用问题。
 
@@ -73,7 +102,7 @@ rag:
     - 如果用户询问公司相关信息但未明确说明，建议其咨询具体部门或使用知识库查询
     - 对于无法确认的信息，诚实告知
     - 保持积极正面的沟通态度
-    
+
   intent-prompt: |
     你是一个意图分类器，需要判断用户输入的问题意图。请根据以下规则进行分类：s
 
@@ -98,3 +127,15 @@ server:
       charset: UTF-8
       enabled: true
       force: true
+
+milvus:
+  collection:
+    name: knowledge_base
+    vector-dimension: 1024
+    partitions: default
+    recreate: false
+
+# 跨域配置 填你的服务器的地址
+app:
+  cors:
+    allowed-origins: http://localhost:3000,http://115.190.202.146:3000
