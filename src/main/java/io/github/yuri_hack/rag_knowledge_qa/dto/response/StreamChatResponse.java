@@ -1,4 +1,4 @@
-package io.github.yuri_hack.rag_knowledge_qa.dto;
+package io.github.yuri_hack.rag_knowledge_qa.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

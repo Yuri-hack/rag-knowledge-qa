@@ -1,4 +1,4 @@
-package io.github.yuri_hack.rag_knowledge_qa.configuration;
+package io.github.yuri_hack.rag_knowledge_qa.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
