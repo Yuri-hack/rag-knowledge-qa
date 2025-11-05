@@ -1,4 +1,4 @@
-package io.github.yuri_hack.rag_knowledge_qa.service;
+package io.github.yuri_hack.rag_knowledge_qa.cache;
 
 import java.util.concurrent.TimeUnit;
 

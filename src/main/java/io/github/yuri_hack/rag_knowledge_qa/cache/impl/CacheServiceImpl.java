@@ -1,6 +1,6 @@
-package io.github.yuri_hack.rag_knowledge_qa.service.impl;
+package io.github.yuri_hack.rag_knowledge_qa.cache.impl;
 
-import io.github.yuri_hack.rag_knowledge_qa.service.CacheService;
+import io.github.yuri_hack.rag_knowledge_qa.cache.CacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;

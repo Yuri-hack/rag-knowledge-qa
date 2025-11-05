@@ -1,7 +1,7 @@
 // ChatOrchestrationServiceImpl.java
 package io.github.yuri_hack.rag_knowledge_qa.service.impl;
 
-import io.github.yuri_hack.rag_knowledge_qa.dto.StreamChatResponse;
+import io.github.yuri_hack.rag_knowledge_qa.dto.response.StreamChatResponse;
 import io.github.yuri_hack.rag_knowledge_qa.enums.IntentEnum;
 import io.github.yuri_hack.rag_knowledge_qa.service.ChatOrchestrationService;
 import io.github.yuri_hack.rag_knowledge_qa.service.DailyChatService;
@@ -24,14 +24,14 @@ public class ChatOrchestrationServiceImpl implements ChatOrchestrationService {
     private final DailyChatService dailyChatService;
 
     @Override
-    public Flux<StreamChatResponse> chatStream(String question, int topK) {
+    public Flux<StreamChatResponse> chatStream(String question) {
         // 1. 意图识别
-        IntentEnum intentEnum = intentService.classifyIntent(question);
-        log.info("用户意图识别结果: intent={}", intentEnum);
+        IntentEnum intent = intentService.classifyIntent(question);
+        log.info("用户意图识别结果: intent={}", intent);
 
         // 2. 根据意图路由到不同的服务
-        if (Objects.requireNonNull(intentEnum) == IntentEnum.KNOWLEDGE_BASE) {
-            return ragService.handleKnowledgeBaseQuery(question, "向远迁是java工程师，喜欢打羽毛球");
+        if (Objects.requireNonNull(intent) == IntentEnum.KNOWLEDGE_BASE) {
+            return ragService.handleKnowledgeBaseQuery(question);
         }
         return dailyChatService.handleDailyChat(question);
     }

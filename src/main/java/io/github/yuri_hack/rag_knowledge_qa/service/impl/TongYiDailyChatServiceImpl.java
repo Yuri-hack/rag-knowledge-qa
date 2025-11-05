@@ -1,9 +1,9 @@
 package io.github.yuri_hack.rag_knowledge_qa.service.impl;
 
 import com.alibaba.dashscope.common.Message;
-import io.github.yuri_hack.rag_knowledge_qa.configuration.PromptConfig;
-import io.github.yuri_hack.rag_knowledge_qa.configuration.TongYiBaseConfig;
-import io.github.yuri_hack.rag_knowledge_qa.dto.StreamChatResponse;
+import io.github.yuri_hack.rag_knowledge_qa.config.PromptConfig;
+import io.github.yuri_hack.rag_knowledge_qa.config.TongYiBaseConfig;
+import io.github.yuri_hack.rag_knowledge_qa.dto.response.StreamChatResponse;
 import io.github.yuri_hack.rag_knowledge_qa.service.DailyChatService;
 import io.github.yuri_hack.rag_knowledge_qa.service.base.BaseTongYiService;
 import org.springframework.stereotype.Service;

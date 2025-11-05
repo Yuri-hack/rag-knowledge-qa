@@ -1,6 +1,6 @@
 package io.github.yuri_hack.rag_knowledge_qa.controller;
 
-import io.github.yuri_hack.rag_knowledge_qa.dto.StreamChatResponse;
+import io.github.yuri_hack.rag_knowledge_qa.dto.response.StreamChatResponse;
 import io.github.yuri_hack.rag_knowledge_qa.service.ChatOrchestrationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,10 +20,8 @@ public class ChatController {
     private final ChatOrchestrationService chatOrchestrationService;
 
     @GetMapping(value = "/rag/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<StreamChatResponse> ragChatStream(
-            @RequestParam String question,
-            @RequestParam(defaultValue = "3") int topK) {
-        return chatOrchestrationService.chatStream(question, topK)
+    public Flux<StreamChatResponse> ragChatStream(@RequestParam String question) {
+        return chatOrchestrationService.chatStream(question)
                 .onErrorResume(e -> {
                     log.error("RAG流式调用异常", e);
                     return Flux.just(StreamChatResponse.builder()
