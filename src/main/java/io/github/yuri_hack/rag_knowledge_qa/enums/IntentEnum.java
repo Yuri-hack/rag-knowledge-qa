@@ -3,8 +3,8 @@ package io.github.yuri_hack.rag_knowledge_qa.enums;
 import java.util.Optional;
 
 public enum IntentEnum {
-    KNOWLEDGE_BASE("knowledge_base", 0),
-    DAILY_CHAT("daily_chat", 1);
+    KNOWLEDGE_BASE("KNOWLEDGE_BASE", 0),
+    DAILY_CHAT("DAILY_CHAT", 1);
 
     private final String desc;
     private final int code;
