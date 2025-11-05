@@ -29,8 +29,8 @@ scp -r \
 echo "🐳 在服务器上启动 Docker 服务..."
 ssh ${REMOTE_USER}@${REMOTE_HOST} "
   cd ${REMOTE_DIR}
-  docker-compose -f ${REMOTE_DOCKER_COMPOSE_FILE} down
-  docker-compose -f ${REMOTE_DOCKER_COMPOSE_FILE} up -d --build
+  docker-compose --env-file .env.prod -f ${REMOTE_DOCKER_COMPOSE_FILE} down
+  docker-compose --env-file .env.prod -f ${REMOTE_DOCKER_COMPOSE_FILE} up -d --build
 "
 
 # 4. 等待服务启动
