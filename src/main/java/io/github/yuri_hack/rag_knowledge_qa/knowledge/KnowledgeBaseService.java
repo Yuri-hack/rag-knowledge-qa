@@ -11,4 +11,6 @@ public interface KnowledgeBaseService {
     String uploadAndProcessFile(FileUploadRequest request);
 
     List<KnowledgeSearchResult> searchKnowledge(SearchRequest request);
+
+
 }

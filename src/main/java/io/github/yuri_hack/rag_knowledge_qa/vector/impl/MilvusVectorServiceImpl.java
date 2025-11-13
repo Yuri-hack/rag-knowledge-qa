@@ -166,7 +166,7 @@ public class MilvusVectorServiceImpl implements VectorStoreService {
                         int chunkIndex = ((Number) idScore.get(CHUNK_INDEX_FIELD)).intValue();
                         long chunkId = ((Number) idScore.get(CHUNK_ID_FIELD)).longValue();
 
-                        // 创建搜索结果对象 - 需要确保 VectorSearchResult 有 chunkId 字段和对应的构造方法/setter
+                        // 创建搜索结果对象
                         VectorSearchResult result = VectorSearchResult.of(chunkIndex, similarity, documentId, chunkId);
                         vectorSearchResults.add(result);
                     } catch (Exception fieldException) {
@@ -182,19 +182,6 @@ public class MilvusVectorServiceImpl implements VectorStoreService {
         } catch (Exception e) {
             log.error("Milvus向量搜索失败，查询向量维度: {}, topK: {}", queryVector.length, topK, e);
             throw new VectorStorageException("向量搜索失败: " + e.getMessage(), e);
-        }
-    }
-
-    // 设置 SearchResult 对象的字段
-    private void setSearchResultFields(VectorSearchResult result, Integer chunkIndex,
-                                       double similarity, String documentId, Long chunkId) {
-        try {
-            result.setChunkIndex(chunkIndex);
-            result.setSimilarity(similarity);
-            result.setDocumentId(documentId);
-            result.setChunkId(chunkId);
-        } catch (Exception e) {
-            log.warn("设置SearchResult字段失败", e);
         }
     }
 }
