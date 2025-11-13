@@ -1,11 +1,13 @@
 package io.github.yuri_hack.rag_knowledge_qa.config;
 
+import org.springframework.boot.autoconfigure.data.redis.RedisProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
+import redis.clients.jedis.JedisPooled;
 
 @Configuration
 public class RedisConfig {
@@ -32,5 +34,10 @@ public class RedisConfig {
         
         template.afterPropertiesSet();
         return template;
+    }
+
+    @Bean
+    public JedisPooled jedisPooled(RedisProperties redisProperties) {
+        return new JedisPooled(redisProperties.getHost(), redisProperties.getPort());
     }
 }
