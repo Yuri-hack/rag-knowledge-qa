@@ -14,15 +14,17 @@ public class RerankResult {
     private Integer chunkIndex;
     private String documentId;
     private String fileName;
-    
+    private Long documentChunkId;
+
     public static RerankResult from(KnowledgeSearchResult knowledgeResult, Double rerankScore) {
         return new RerankResult(
-            knowledgeResult.getContent(),
-            rerankScore,
-            knowledgeResult.getSimilarity(),
-            knowledgeResult.getChunkIndex(),
-            knowledgeResult.getDocumentId(),
-            knowledgeResult.getFileName()
+                knowledgeResult.getContent(),
+                rerankScore,
+                knowledgeResult.getSimilarity(),
+                knowledgeResult.getChunkIndex(),
+                knowledgeResult.getDocumentId(),
+                knowledgeResult.getFileName(),
+                knowledgeResult.getChunkId()
         );
     }
 }

@@ -11,6 +11,7 @@ public class KnowledgeSearchResult {
     private Double similarity;      // 相似度
     private String documentId;      // 文档ID
     private Double rerankScore;     // rerank分数
+    private Long chunkId;           // 块id
 
     public static KnowledgeSearchResult from(VectorSearchResult vectorResult,
                                                         DocumentChunk documentChunk) {
@@ -20,6 +21,7 @@ public class KnowledgeSearchResult {
         result.setChunkIndex(documentChunk.getChunkIndex());
         result.setSimilarity(vectorResult.getSimilarity());
         result.setDocumentId(vectorResult.getDocumentId());
+        result.setChunkId(vectorResult.getChunkId());
         return result;
     }
 }

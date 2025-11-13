@@ -179,6 +179,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         result.setFileName(rerankResult.getFileName());
         result.setContent(rerankResult.getContent());
         result.setRerankScore(rerankResult.getRerankScore());
+        result.setChunkId(rerankResult.getDocumentChunkId());
         return result;
     }
 
