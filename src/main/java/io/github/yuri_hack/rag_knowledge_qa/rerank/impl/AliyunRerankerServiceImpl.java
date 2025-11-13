@@ -82,7 +82,7 @@ public class AliyunRerankerServiceImpl implements RerankerService {
         ResponseEntity<String> response = restTemplate.exchange(
                 API_URL, HttpMethod.POST, requestEntity, String.class);
 
-        return parseRerankerResponse(response.getBody(), documents.size());
+        return parseRerankerResponse(response.getBody());
     }
 
     /**
@@ -109,7 +109,7 @@ public class AliyunRerankerServiceImpl implements RerankerService {
     /**
      * 解析重排序API响应
      */
-    private List<Double> parseRerankerResponse(String responseBody, int expectedSize) {
+    private List<Double> parseRerankerResponse(String responseBody) {
         JSONObject jsonResponse = JSONObject.parseObject(responseBody);
 
         if (!jsonResponse.containsKey("result")) {
