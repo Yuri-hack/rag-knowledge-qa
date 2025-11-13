@@ -14,4 +14,6 @@ public class PromptConfig {
     private String dailyPrompt;
 
     private String intentPrompt;
+
+    private String normalizePrompt;
 }

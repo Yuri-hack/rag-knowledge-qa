@@ -36,7 +36,7 @@ public class AliEmbeddingServiceImpl implements EmbeddingService {
         try {
             Assert.hasText(text, "Text cannot be null or empty");
             float[] embed = embeddingModel.embed(text);
-            return normalize ? normalizeVector(embed) : embed;
+            return normalize ? normalize(embed) : embed;
         } catch (Exception e) {
             log.error("Failed to generate embedding for text: {}", text, e);
             throw new VectorException("Embedding generation failed: " + e.getMessage(), e);
@@ -60,33 +60,6 @@ public class AliEmbeddingServiceImpl implements EmbeddingService {
         }
         return out;
     }
-
-    private float[] normalizeVector(float[] vector) {
-        if (vector == null || vector.length == 0) {
-            return vector;
-        }
-
-        // 计算向量模长
-        double norm = 0.0;
-        for (float value : vector) {
-            norm += value * value;
-        }
-        norm = Math.sqrt(norm);
-
-        // 归一化处理
-        float[] normalized = new float[vector.length];
-        if (norm > 1e-12) { // 避免除零
-            for (int i = 0; i < vector.length; i++) {
-                normalized[i] = (float) (vector[i] / norm);
-            }
-        } else {
-            // 如果模长接近0，返回原向量或零向量
-            System.arraycopy(vector, 0, normalized, 0, vector.length);
-        }
-
-        return normalized;
-    }
-
 
     /**
      * 计算两个向量的余弦相似度
