@@ -1,80 +1,56 @@
 package io.github.yuri_hack.rag_knowledge_qa.cache.impl;
 
 import io.github.yuri_hack.rag_knowledge_qa.cache.CacheService;
+import io.github.yuri_hack.rag_knowledge_qa.config.CacheConfig;
+import io.github.yuri_hack.rag_knowledge_qa.util.SimpleNormalizer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class CacheServiceImpl implements CacheService {
-
     private final RedisTemplate<String, Object> redisTemplate;
+    private final SimpleNormalizer simpleNormalizer;
+    private final CacheConfig config;
 
-    private static final String CACHE_PREFIX = "rag:";
+    private static final String CACHE_PREFIX = "rag:exact:";
 
-    /**
-     * 设置缓存
-     */
-    public void set(String key, Object value, long timeout, TimeUnit timeUnit) {
+    @Override
+    public Optional<String> getExactAnswer(String question) {
+        if (!config.getExact().isEnabled()) return Optional.empty();
+
         try {
-            String cacheKey = calcKey(key);
-            redisTemplate.opsForValue().set(cacheKey, value, timeout, timeUnit);
-            log.debug("缓存设置成功, key: {}", cacheKey);
+            String key = buildCacheKey(question);
+            Object result = redisTemplate.opsForValue().get(key);
+            return result != null ? Optional.of(result.toString()) : Optional.empty();
         } catch (Exception e) {
-            log.error("缓存设置失败, key: {}", key, e);
+            log.error("获取精确缓存失败", e);
+            return Optional.empty();
         }
     }
 
-    /**
-     * 获取缓存
-     */
-    public Object get(String key) {
+    @Override
+    public void cacheExactAnswer(String question, String answer) {
+        if (!config.getExact().isEnabled()) return;
+
         try {
-            String cacheKey = calcKey(key);
-            return redisTemplate.opsForValue().get(cacheKey);
+            String key = buildCacheKey(question);
+            redisTemplate.opsForValue().set(
+                    key, answer, config.getExact().getTtlMinutes(), TimeUnit.MINUTES
+            );
         } catch (Exception e) {
-            log.error("缓存获取失败, key: {}", key, e);
-            return null;
+            log.error("缓存精确答案失败", e);
         }
     }
 
-    /**
-     * 删除缓存
-     */
-    public boolean delete(String key) {
-        try {
-            String cacheKey = calcKey(key);
-            return redisTemplate.delete(cacheKey);
-        } catch (Exception e) {
-            log.error("缓存删除失败, key: {}", key, e);
-            return false;
-        }
-    }
-
-    /**
-     * 缓存问答结果
-     */
-    public void cacheQAResult(String question, String answer) {
-        // 缓存1小时
-        String key = "qa:" + question.hashCode();
-        set(key, answer, 1, TimeUnit.HOURS);
-    }
-
-    /**
-     * 获取缓存的问答结果
-     */
-    public String getCachedAnswer(String question) {
-        String key = "qa:" + question.hashCode();
-        Object result = get(key);
-        return result != null ? result.toString() : null;
-    }
-
-    private String calcKey(String key) {
-        return CACHE_PREFIX + key;
+    private String buildCacheKey(String question) {
+        // 这里只做基本归一化
+        return CACHE_PREFIX + simpleNormalizer.normalize(question);
     }
 }

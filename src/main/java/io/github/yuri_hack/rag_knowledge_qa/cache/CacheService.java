@@ -1,17 +1,10 @@
 package io.github.yuri_hack.rag_knowledge_qa.cache;
 
-import java.util.concurrent.TimeUnit;
+import java.util.Optional;
 
 public interface CacheService {
 
-    void set(String key, Object value, long timeout, TimeUnit timeUnit);
+    Optional<String> getExactAnswer(String question);
 
-    Object get(String key);
-
-    boolean delete(String key);
-
-    void cacheQAResult(String question, String answer);
-
-    String getCachedAnswer(String question);
-
+    void cacheExactAnswer(String question, String answer);
 }
