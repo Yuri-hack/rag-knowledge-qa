@@ -45,14 +45,38 @@ tongyi:
     top-p: 0.8
     enable-search: true
   intent-model-config:
-    model: "qwen-turbo"
+    model: qwen-turbo
     max-tokens: 500
+    temperature: 0.1
+    top-p: 0.8
+    enable-search: false
+  normalize-model-config:
+    model: qwen-turbo
+    max-tokens: 100
     temperature: 0.1
     top-p: 0.8
     enable-search: false
 
 # RAG相关配置
 rag:
+  cache:
+    exact:
+      enabled: true
+      ttl-minutes: 60
+    semantic-answer:
+      enabled: true
+      ttl-minutes: 60
+      similarity-threshold: 0.95
+      top-k: 5
+      index-name: "rag_answer_semantic_idx"
+      cache-prefix: "rag:answer:semantic:"
+    semantic:
+      enabled: true
+      ttl-hours: 24
+      similarity-threshold: 0.85
+      top-k: 5
+      index-name: "rag_document_semantic_idx"
+      cache-prefix: "rag:document:semantic:"
   chunk:
     size: 512
     overlap: 100
@@ -118,6 +142,25 @@ rag:
     **输出格式：**
     只输出下面二者之一，严禁返回其余内容
     knowledge_base|daily_chat
+  normalize-prompt: |
+    你是一个问题归一化助手，负责将用户输入的问题转化为标准问题形式。请遵循以下规则：
+    1. 保持原问题的核心意图不变
+    2. 去除口语化、冗余和修饰性词语
+    3. 使用简洁、规范的表达方式
+    4. 如果问题涉及具体实体（如产品名、技术术语），保持其标准名称
+    5. 输出仅包含归一化后的问题，不要添加任何解释
+    
+    示例：
+    输入："我想知道怎么安装这个软件，有没有详细的步骤啊？"
+    输出："如何安装软件"
+    
+    输入："咱们公司的年假政策具体是啥样的？能详细说说吗"
+    输出："公司年假政策"
+    
+    输入："请问报销流程需要哪些材料和步骤？"
+    输出："报销流程所需材料和步骤"
+    
+    现在请对用户问题进行归一化处理
 
 # 通用配置
 server:
@@ -131,7 +174,7 @@ server:
 milvus:
   collection:
     name: knowledge_base
-    vector-dimension: 1024
+    vector-dimension: ${spring.ai.openai.embedding.options.dimensions}
     partitions: default
     recreate: false
 
@@ -139,3 +182,8 @@ milvus:
 app:
   cors:
     allowed-origins: http://localhost:3000,http://115.190.202.146:3000
+
+semantic:
+  cache:
+    index:
+      dimension: ${spring.ai.openai.embedding.options.dimensions}
