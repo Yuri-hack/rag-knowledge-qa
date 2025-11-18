@@ -1,24 +1,24 @@
 package io.github.yuri_hack.rag_knowledge_qa.knowledge.impl;
 
+import io.github.yuri_hack.rag_knowledge_qa.document.FileProcessor;
+import io.github.yuri_hack.rag_knowledge_qa.document.FileProcessorFactory;
 import io.github.yuri_hack.rag_knowledge_qa.dto.internal.KnowledgeSearchResult;
 import io.github.yuri_hack.rag_knowledge_qa.dto.internal.ProcessResult;
 import io.github.yuri_hack.rag_knowledge_qa.dto.internal.RerankResult;
 import io.github.yuri_hack.rag_knowledge_qa.dto.internal.VectorSearchResult;
 import io.github.yuri_hack.rag_knowledge_qa.dto.request.FileUploadRequest;
 import io.github.yuri_hack.rag_knowledge_qa.dto.request.SearchRequest;
+import io.github.yuri_hack.rag_knowledge_qa.embed.EmbeddingService;
 import io.github.yuri_hack.rag_knowledge_qa.entity.DocumentChunk;
 import io.github.yuri_hack.rag_knowledge_qa.entity.UploadedDocument;
 import io.github.yuri_hack.rag_knowledge_qa.enums.DocumentStatus;
-import io.github.yuri_hack.rag_knowledge_qa.document.FileProcessor;
-import io.github.yuri_hack.rag_knowledge_qa.document.FileProcessorFactory;
+import io.github.yuri_hack.rag_knowledge_qa.knowledge.KnowledgeBaseService;
 import io.github.yuri_hack.rag_knowledge_qa.repository.DocumentChunkRepository;
 import io.github.yuri_hack.rag_knowledge_qa.repository.UploadedDocumentRepository;
-import io.github.yuri_hack.rag_knowledge_qa.embed.EmbeddingService;
-import io.github.yuri_hack.rag_knowledge_qa.knowledge.KnowledgeBaseService;
 import io.github.yuri_hack.rag_knowledge_qa.rerank.RerankerService;
-import io.github.yuri_hack.rag_knowledge_qa.vector.VectorStoreService;
 import io.github.yuri_hack.rag_knowledge_qa.splitter.TextSplitter;
 import io.github.yuri_hack.rag_knowledge_qa.splitter.model.TextChunk;
+import io.github.yuri_hack.rag_knowledge_qa.vector.VectorStoreService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -112,6 +112,32 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
             throw new RuntimeException("知识检索失败: " + e.getMessage(), e);
         }
     }
+
+    @Override
+    public double getMaxSimilarity(String query) {
+        try {
+            // 生成查询向量
+            float[] queryVector = embeddingService.getEmbedding(query);
+
+            // 在Milvus中搜索相似向量，只取最相似的1个结果
+            List<VectorSearchResult> vectorResults = vectorStoreService.searchSimilarVectors(queryVector, 1);
+
+            if (vectorResults.isEmpty()) {
+                log.warn("未找到相似的知识片段，查询: {}", query);
+                return 0.0;
+            }
+
+            // 返回最高相似度
+            double maxSimilarity = vectorResults.get(0).getSimilarity();
+            log.debug("查询 '{}' 的最高相似度: {}", query, maxSimilarity);
+            return maxSimilarity;
+
+        } catch (Exception e) {
+            log.error("获取最高相似度失败: {}", query, e);
+            return 0.0;
+        }
+    }
+
 
     /**
      * 按比例截取前topRatio的数据

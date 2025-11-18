@@ -12,5 +12,5 @@ public interface KnowledgeBaseService {
 
     List<KnowledgeSearchResult> searchKnowledge(SearchRequest request);
 
-
+    double getMaxSimilarity(String query);
 }
