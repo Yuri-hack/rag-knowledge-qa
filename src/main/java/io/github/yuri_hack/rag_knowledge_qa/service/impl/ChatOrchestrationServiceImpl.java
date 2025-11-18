@@ -3,10 +3,12 @@ package io.github.yuri_hack.rag_knowledge_qa.service.impl;
 import io.github.yuri_hack.rag_knowledge_qa.cache.CacheService;
 import io.github.yuri_hack.rag_knowledge_qa.cache.SemanticAnswerCacheService;
 import io.github.yuri_hack.rag_knowledge_qa.cache.model.SemanticAnswerCacheHit;
+import io.github.yuri_hack.rag_knowledge_qa.config.RoutingConfig;
 import io.github.yuri_hack.rag_knowledge_qa.dto.response.StreamChatResponse;
-import io.github.yuri_hack.rag_knowledge_qa.enums.IntentEnum;
+import io.github.yuri_hack.rag_knowledge_qa.knowledge.KnowledgeBaseService;
 import io.github.yuri_hack.rag_knowledge_qa.service.ChatOrchestrationService;
 import io.github.yuri_hack.rag_knowledge_qa.service.DailyChatService;
+import io.github.yuri_hack.rag_knowledge_qa.service.AdaptiveAnswerService;
 import io.github.yuri_hack.rag_knowledge_qa.service.IntentService;
 import io.github.yuri_hack.rag_knowledge_qa.service.RAGService;
 import io.github.yuri_hack.rag_knowledge_qa.util.StreamUtils;
@@ -15,7 +17,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
-import java.util.Objects;
 import java.util.Optional;
 
 @Slf4j
@@ -28,6 +29,9 @@ public class ChatOrchestrationServiceImpl implements ChatOrchestrationService {
     private final DailyChatService dailyChatService;
     private final CacheService exactCacheService;
     private final SemanticAnswerCacheService semanticAnswerCacheService;
+    private final KnowledgeBaseService knowledgeBaseService;
+    private final RoutingConfig routingConfig;
+    private final AdaptiveAnswerService adaptiveAnswerService;
 
     @Override
     public Flux<StreamChatResponse> chatStream(String question) {
@@ -51,13 +55,15 @@ public class ChatOrchestrationServiceImpl implements ChatOrchestrationService {
         }
 
         // 3. 意图识别
-        IntentEnum intent = intentService.classifyIntent(question);
-        log.info("用户意图识别结果: intent={}", intent);
-
+        double intentScore = intentService.getKnowledgeIntentScore(question);
+        double similarity = knowledgeBaseService.getMaxSimilarity(question);
         // 根据意图路由到不同的服务
-        if (Objects.requireNonNull(intent) == IntentEnum.KNOWLEDGE_BASE) {
+        if (intentScore > routingConfig.getIntentHigh() || similarity > routingConfig.getIntentHigh()) {
             return ragService.handleKnowledgeBaseQuery(question);
+        } else if (intentScore < routingConfig.getIntentLow() && similarity < routingConfig.getIntentLow()) {
+            return dailyChatService.handleDailyChat(question);
+        } else {
+            return adaptiveAnswerService.handleAmbiguousQuery(question);
         }
-        return dailyChatService.handleDailyChat(question);
     }
 }
