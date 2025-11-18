@@ -16,4 +16,6 @@ public class PromptConfig {
     private String intentPrompt;
 
     private String normalizePrompt;
+
+    private String adaptiveAnswerPrompt;
 }
