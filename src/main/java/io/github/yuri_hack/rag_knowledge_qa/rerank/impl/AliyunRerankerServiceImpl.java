@@ -90,7 +90,6 @@ public class AliyunRerankerServiceImpl implements RerankerService {
      */
     private Map<String, Object> buildRequestBody(String query, List<String> documents) {
         Map<String, Object> body = new HashMap<>();
-        // 直接添加顶级字段：query 和 docs（与 curl 请求体结构完全一致）
         body.put("query", query);
         body.put("docs", documents);
         return body;
@@ -152,7 +151,7 @@ public class AliyunRerankerServiceImpl implements RerankerService {
     }
 
     /**
-     * 将知识搜索结果转换为重排序结果（默认情况）
+     * 将知识搜索结果转换为重排序结果
      */
     private List<RerankResult> convertToRerankResults(List<KnowledgeSearchResult> knowledgeResults) {
         return knowledgeResults.stream()
