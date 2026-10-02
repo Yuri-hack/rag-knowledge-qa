@@ -122,6 +122,31 @@ flowchart TD
 - **滑动窗口分块** - 智能文本分割
 - **语义分块** - 保持上下文连贯性
 
+## 🚀 快速开始
+
+### 1. 启动基础服务（Milvus / MySQL / Redis）
+
+```bash
+docker compose -f docker/dev/docker-compose.dev.yml up -d
+```
+
+### 2. 配置密钥
+
+仓库**不包含任何真实密钥**，需自行申请后本地配置：
+
+```bash
+cp .env.example .env.prod   # 编辑并填入真实 key（.env* 已被 gitignore，不会被提交）
+```
+
+- 本地开发：在 IDE 运行配置或 shell 中导出 `ALIYUN_API_KEY`、`ALIYUN_OPENSEARCH_API_KEY` 等环境变量
+- 生产部署：`docker/prod/docker-compose.prod.yml` 会自动读取 `.env.prod`
+
+### 3. 启动应用
+
+```bash
+./mvnw spring-boot:run
+```
+
 ## 📚 API文档
 
 ### 文件上传接口

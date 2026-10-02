@@ -32,3 +32,12 @@ build/
 ### VS Code ###
 .vscode/
 .env.prod
+
+### macOS junk ###
+.DS_Store
+**/.DS_Store
+
+### Local env / secrets ###
+.env
+.env.*
+!.env.example
