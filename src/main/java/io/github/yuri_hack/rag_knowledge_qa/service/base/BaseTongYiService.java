@@ -6,6 +6,8 @@ import com.alibaba.dashscope.aigc.generation.GenerationResult;
 import com.alibaba.dashscope.aigc.generation.GenerationUsage;
 import com.alibaba.dashscope.common.Message;
 import com.alibaba.dashscope.common.Role;
+import com.alibaba.dashscope.tools.ToolBase;
+import com.alibaba.dashscope.tools.ToolFunction;
 import io.github.yuri_hack.rag_knowledge_qa.config.PromptConfig;
 import io.github.yuri_hack.rag_knowledge_qa.config.TongYiBaseConfig;
 import io.github.yuri_hack.rag_knowledge_qa.config.TongYiModelConfig;
@@ -42,6 +44,35 @@ public abstract class BaseTongYiService {
             return ChatResponse.builder()
                     .success(false)
                     .errorMessage("服务调用失败: " + e.getMessage())
+                    .build();
+        }
+    }
+
+    /**
+     * agent 阻塞式调用：带工具 schema，返回原始 assistant 消息（含 toolCalls）。
+     * 注意：enableSearch 显式关闭——它和 tool calling 冲突（D4 风险点）。
+     */
+    protected Message ask(List<Message> messages, List<ToolBase> tools, TongYiModelConfig modelConfig) {
+        GenerationParam param = GenerationParam.builder()
+                .apiKey(tongYiBaseConfig.getApiKey())
+                .model(modelConfig.getModel())
+                .messages(messages)
+                .resultFormat(GenerationParam.ResultFormat.MESSAGE)
+                .maxTokens(modelConfig.getMaxTokens())
+                .temperature(modelConfig.getTemperature())
+                .topP(modelConfig.getTopP())
+                .enableSearch(false)
+                .tools(tools)
+                .build();
+        try {
+            GenerationResult result = generation.call(param);
+            return result.getOutput().getChoices().get(0).getMessage();
+        } catch (Exception e) {
+            log.error("agent ask 调用失败", e);
+            // 失败也是输入：返回一条失败消息，让循环决定重试还是终止（不抛异常炸链）
+            return Message.builder()
+                    .role(Role.ASSISTANT.getValue())
+                    .content("[模型调用失败] " + e.getMessage())
                     .build();
         }
     }
