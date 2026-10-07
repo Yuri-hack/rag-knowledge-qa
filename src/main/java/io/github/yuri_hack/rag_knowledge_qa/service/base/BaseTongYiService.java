@@ -52,7 +52,7 @@ public abstract class BaseTongYiService {
      * agent 阻塞式调用：带工具 schema，返回原始 assistant 消息（含 toolCalls）。
      * 注意：enableSearch 显式关闭——它和 tool calling 冲突（D4 风险点）。
      */
-    protected Message ask(List<Message> messages, List<ToolBase> tools, TongYiModelConfig modelConfig) {
+    protected AskResult ask(List<Message> messages, List<ToolBase> tools, TongYiModelConfig modelConfig) {
         GenerationParam param = GenerationParam.builder()
                 .apiKey(tongYiBaseConfig.getApiKey())
                 .model(modelConfig.getModel())
@@ -66,14 +66,22 @@ public abstract class BaseTongYiService {
                 .build();
         try {
             GenerationResult result = generation.call(param);
-            return result.getOutput().getChoices().get(0).getMessage();
+            GenerationUsage u = result.getUsage();
+            UsageInfo usageInfo = UsageInfo.builder()
+                    .inputTokens(u.getInputTokens())
+                    .outputTokens(u.getOutputTokens())
+                    .totalTokens(u.getTotalTokens())
+                    .build();
+            return new AskResult(result.getOutput().getChoices().get(0).getMessage(), usageInfo);
         } catch (Exception e) {
             log.error("agent ask 调用失败", e);
             // 失败也是输入：返回一条失败消息，让循环决定重试还是终止（不抛异常炸链）
-            return Message.builder()
-                    .role(Role.ASSISTANT.getValue())
-                    .content("[模型调用失败] " + e.getMessage())
-                    .build();
+            return new AskResult(
+                    Message.builder()
+                            .role(Role.ASSISTANT.getValue())
+                            .content("[模型调用失败] " + e.getMessage())
+                            .build(),
+                    UsageInfo.builder().build());
         }
     }
 
