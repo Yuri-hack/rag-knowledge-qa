@@ -42,9 +42,20 @@ public class AgentDemoRunner implements CommandLineRunner {
         this.toolRegistry = toolRegistry;
     }
 
+    private static final String[] QUESTIONS = {
+            "P5 员工的年假有几天？如果司龄满 5 年呢？",
+            "上海子公司的 P5 员工年假是几天？"
+    };
+
     @Override
     public void run(String... args) {
-        String question = "P5 员工的年假有几天？如果司龄满 5 年呢？";
+        for (String question : QUESTIONS) {
+            runOne(question);
+        }
+        log.info("D1 demo finished");
+    }
+
+    private void runOne(String question) {
         System.out.println("\n===== D1 DEMO =====");
         System.out.println("[Q] " + question);
 
@@ -79,6 +90,5 @@ public class AgentDemoRunner implements CommandLineRunner {
             }
         }
         System.out.println("达到步数上限（" + MAX_STEPS + "），防绕圈终止");
-        log.info("D1 demo finished");
     }
 }
