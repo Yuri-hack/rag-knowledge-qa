@@ -41,3 +41,7 @@ build/
 .env
 .env.*
 !.env.example
+
+### Python ###
+__pycache__/
+*.pyc

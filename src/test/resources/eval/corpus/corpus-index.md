@@ -132,6 +132,17 @@
 2. qa.json 新增难度类 `scope_directed`（如"上海子公司P5年假""实习生病假"），预期基线在 C01 类题上系统性失分
 3. **agent 的潜在修复路径 = D4 的 `get_document_detail`**：检索若命中 C01 的范围 chunk（无数字），agent 自评"信息不足"后按 documentId 拉全文即得数字。此失败案例就是该工具存在的理由
 
+## 知识库清理（2026-10-08，D3 基线定稿前）
+
+发现并清理了**12 篇 2025-11 的测试残留文档**（《20道HR面常见问题.pdf》×11 份重复上传 + 《自洽的程序员.pdf》整本），共 **428 个 chunk**——占当时知识库 498 chunk 的 **86%**。
+
+影响评估：
+- 此前的实验（16/46 篇两轮、10/10、C01 失败）均在含 428 噪声 chunk 的库上测得——**rerank 在 86% 噪声下依然稳定命中正典**，抗干扰结论因此更硬
+- 但"受控"声明打折：46 篇冻结实际漂浮在 58 篇的库上。清理后已用干净库重跑 21 题基线，数字与污染环境基本一致（20/21 + S01⏳judge），**正式 D3 基线以 `results/baseline-clean-final-*.json` 为准**
+- 顺带确认系统缺陷：知识库无删除接口，本次清理为手工三层操作（MySQL DELETE + pymilvus 按 document_id 删实体 + Redis flush）——已列入 badcases 素材
+
+**当前知识库终态：46 篇 / 70 chunk / 0 残留。**
+
 ## 上传备注
 
 - 上传接口：`POST /api/knowledge/upload`（multipart：file、fileName、description），或走前端 http://localhost:3000；
