@@ -93,7 +93,32 @@
     {
       "id": "D01", "category": "decomposition", "question": "总部和上海子公司的P5年假标准有什么不同？",
       "expectedFacts": ["8天", "10天"], "expectDocKeyword": "上海子公司年假", "shouldRetrieve": true,
-      "notes": "需要同时召回两份文档：正典对照表 P5=8 + C01 子公司 P5=10。agent 分解检索的潜在优势题"
+      "notes": "需要同时召回两份文档：正典对照表 P5=8 + C01 子公司 P5=10。agent 分解检索的潜在优势题。基线实测：通过（两文档都进 context）"
+    },
+    {
+      "id": "MA01", "category": "multi_aspect", "question": "对比上海子公司和总部在年假、病假、加班调休三方面的规定差异？",
+      "expectedFacts": ["10天", "8天", "10个工作日", "1:2", "1:1.5"], "expectDocKeyword": "上海子公司年假", "shouldRetrieve": true,
+      "notes": "证据横跨 5+ 份文档（C01/C03/C04/01/02/07），单次检索 top5 装不下全部关键数字——基线预期部分覆盖（factHits<total），agent 分解检索的目标题"
+    },
+    {
+      "id": "MA02", "category": "multi_aspect", "question": "上海子公司和总部的迟到扣款和补卡规定有什么不同？",
+      "expectedFacts": ["20元", "50元", "5次", "3次"], "expectDocKeyword": "上海子公司考勤", "shouldRetrieve": true,
+      "notes": "跨 C02 与正典 05 的数字对比题，4 个关键数字"
+    },
+    {
+      "id": "MA03", "category": "multi_aspect", "question": "总部和驻场人员的差旅住宿标准有什么不同？",
+      "expectedFacts": ["600元", "300元"], "expectDocKeyword": "驻场人员差旅", "shouldRetrieve": true,
+      "notes": "跨 03 与 C13 的标准对比题"
+    },
+    {
+      "id": "AG01", "category": "aggregation", "question": "公司一共有哪些类型的假期？",
+      "expectedFacts": ["年假", "病假", "婚假", "产假", "陪产假", "丧假"], "expectDocKeyword": "专项假期", "shouldRetrieve": true,
+      "notes": "答案散在 01/05/06/10/C07 多篇文档的列举聚合题——单次检索难以覆盖全部假期类型"
+    },
+    {
+      "id": "AG02", "category": "aggregation", "question": "公司报销和审批的时限分别有哪些？各是多少个工作日？",
+      "expectedFacts": ["15个工作日", "3个工作日", "5个工作日"], "expectDocKeyword": "绿色通道", "shouldRetrieve": true,
+      "notes": "时限散在 03（15）/04（3补录、5双审批）/14（5复核）多篇——聚合题"
     },
     {
       "id": "W01", "category": "needs_web", "question": "今年国庆节放假调休怎么安排？",
