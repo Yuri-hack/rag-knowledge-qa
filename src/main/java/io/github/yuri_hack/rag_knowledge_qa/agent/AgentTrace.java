@@ -39,7 +39,8 @@ public class AgentTrace {
         this.endedAtMs = System.currentTimeMillis();
     }
 
-    public void maxStepsReached() {
+    public void maxStepsReached(String forcedAnswer) {
+        this.finalAnswer = forcedAnswer;
         this.terminationReason = TerminationReason.MAX_STEPS_REACHED;
         this.endedAtMs = System.currentTimeMillis();
     }

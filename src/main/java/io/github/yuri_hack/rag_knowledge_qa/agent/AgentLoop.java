@@ -80,7 +80,15 @@ public class AgentLoop {
                         .build());
             }
         }
-        trace.maxStepsReached();
+        // BC01 修复：步数打满时不再空手终止——用已检索的证据强制作答一次
+        messages.add(Message.builder().role(Role.USER.getValue())
+                .content("已达到检索步数上限。请基于以上已检索到的全部信息直接回答最初的问题，"
+                        + "并明确说明仍有不足之处，不要再调用任何工具。")
+                .build());
+        AskResult forced = agentService.ask(messages, List.of());
+        AgentStep finalStep = trace.addStep(maxSteps + 1, forced.usage());
+        finalStep.setContent(forced.message().getContent());
+        trace.maxStepsReached(forced.message().getContent());
         return trace;
     }
 
