@@ -45,13 +45,13 @@ tongyi:
     top-p: 0.8
     enable-search: true
   intent-model-config:
-    model: qwen-turbo
+    model: qwen-plus
     max-tokens: 500
     temperature: 0.1
     top-p: 0.8
     enable-search: false
   normalize-model-config:
-    model: qwen-turbo
+    model: qwen-plus
     max-tokens: 100
     temperature: 0.1
     top-p: 0.8

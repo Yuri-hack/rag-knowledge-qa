@@ -44,9 +44,13 @@ def flush_cache():
     print(f"[cache] flushed {len(keys)} keys")
 
 
-def stream_answer(question: str, timeout: int = 90):
-    """调 /api/chat/rag/stream，返回 (answer, usage, ttft_ms, total_ms, error)"""
-    url = BASE + "/api/chat/rag/stream?" + urllib.parse.urlencode({"question": question})
+def stream_answer(question: str, endpoint: str = "baseline", mode: str = "agent", timeout: int = 120):
+    """调问答端点，返回 (answer, usage, ttft_ms, total_ms, error)"""
+    if endpoint in ("agent", "singleshot"):
+        qs = {"question": question, "mode": mode, "maxSteps": 6, "debug": "true"}
+        url = BASE + "/api/chat/agent?" + urllib.parse.urlencode(qs)
+    else:
+        url = BASE + "/api/chat/rag/stream?" + urllib.parse.urlencode({"question": question})
     t0 = time.time()
     answer, usage, error = [], None, None
     ttft = None
@@ -116,7 +120,8 @@ def score_no_retrieval(answer_norm: str, q: dict) -> bool:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--label", default="baseline")
-    ap.add_argument("--endpoint", default="baseline", choices=["baseline", "agent"])
+    ap.add_argument("--endpoint", default="baseline", choices=["baseline", "agent", "singleshot"])
+    ap.add_argument("--mode", default="agent")
     ap.add_argument("--no-flush", action="store_true")
     ap.add_argument("--ids", default="", help="逗号分隔，只跑指定题目（稳定性复测用）")
     args = ap.parse_args()
@@ -134,7 +139,8 @@ def main():
     for q in questions:
         qid, cat = q["id"], q["category"]
         facts = [norm(f) for f in q.get("expectedFacts", [])]
-        answer, usage, ttft, total, error = stream_answer(q["question"])
+        answer, usage, ttft, total, error = stream_answer(
+            q["question"], endpoint=args.endpoint, mode=args.mode)
         ans_n = norm(answer)
 
         if q.get("shouldRetrieve", True):

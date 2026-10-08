@@ -62,7 +62,8 @@ public class KnowledgeSearchTool implements Tool {
         int i = 1;
         for (KnowledgeSearchResult r : results) {
             sb.append("【").append(i++).append("】《").append(r.getFileName())
-                    .append("》 chunk#").append(r.getChunkIndex())
+                    .append("》 documentId=").append(r.getDocumentId())
+                    .append(" chunk#").append(r.getChunkIndex())
                     .append(" 相似度=").append(String.format("%.2f", r.getSimilarity()))
                     .append('\n');
             String content = r.getContent() == null ? "" : r.getContent();

@@ -84,6 +84,31 @@ public class AgentLoop {
         return trace;
     }
 
+    /**
+     * B 臂（单次 RAG + 同 prompt）：强制一次检索（与 agent 相同的工具与 topK），然后无工具生成。
+     * 用于隔离"提示词/检索质量"与"多轮动作空间"的贡献。
+     */
+    public AgentTrace runSingleShot(String question, String systemPrompt) {
+        AgentTrace trace = new AgentTrace(question);
+
+        AgentStep step1 = trace.addStep(1, null);
+        com.google.gson.JsonObject args = new com.google.gson.JsonObject();
+        args.addProperty("query", question);
+        String result = toolRegistry.execute("search_knowledge", args.toString());
+        step1.addToolCall("search_knowledge", question, excerpt(result), !result.startsWith("["));
+
+        List<Message> messages = new ArrayList<>();
+        messages.add(Message.builder().role(Role.SYSTEM.getValue()).content(systemPrompt).build());
+        messages.add(Message.builder().role(Role.USER.getValue())
+                .content(question + "\n\n【检索结果】\n" + result).build());
+
+        AskResult ask = agentService.ask(messages, List.of());
+        AgentStep step2 = trace.addStep(2, ask.usage());
+        step2.setContent(ask.message().getContent());
+        trace.complete(ask.message().getContent());
+        return trace;
+    }
+
     private static String excerpt(String s) {
         if (s == null) return "(null)";
         String firstLine = s.split("\n")[0];

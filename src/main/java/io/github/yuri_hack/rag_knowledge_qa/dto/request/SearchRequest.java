@@ -15,4 +15,10 @@ public class SearchRequest {
         searchRequest.query = query;
         return searchRequest;
     }
+
+    public static SearchRequest of(String query, Integer topK) {
+        SearchRequest searchRequest = of(query);
+        searchRequest.topK = topK;
+        return searchRequest;
+    }
 }

@@ -53,7 +53,7 @@ public abstract class BaseTongYiService {
      * 注意：enableSearch 显式关闭——它和 tool calling 冲突（D4 风险点）。
      */
     protected AskResult ask(List<Message> messages, List<ToolBase> tools, TongYiModelConfig modelConfig) {
-        GenerationParam param = GenerationParam.builder()
+        var builder = GenerationParam.builder()
                 .apiKey(tongYiBaseConfig.getApiKey())
                 .model(modelConfig.getModel())
                 .messages(messages)
@@ -61,9 +61,12 @@ public abstract class BaseTongYiService {
                 .maxTokens(modelConfig.getMaxTokens())
                 .temperature(modelConfig.getTemperature())
                 .topP(modelConfig.getTopP())
-                .enableSearch(false)
-                .tools(tools)
-                .build();
+                .enableSearch(false);
+        // 工具列表为空时不发送 tools 字段（空数组部分端点会报错）
+        if (tools != null && !tools.isEmpty()) {
+            builder.tools(tools);
+        }
+        GenerationParam param = builder.build();
         try {
             GenerationResult result = generation.call(param);
             GenerationUsage u = result.getUsage();

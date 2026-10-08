@@ -15,6 +15,7 @@ import io.github.yuri_hack.rag_knowledge_qa.knowledge.KnowledgeBaseService;
 import io.github.yuri_hack.rag_knowledge_qa.service.RAGService;
 import io.github.yuri_hack.rag_knowledge_qa.service.base.BaseTongYiService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -31,6 +32,10 @@ public class TongYiRAGServiceImpl extends BaseTongYiService implements RAGServic
     private final SemanticDocumentCacheService semanticDocumentCacheService;
     private final SemanticAnswerCacheService semanticAnswerCacheService;
     private final CacheService cacheService;
+
+    /** A′ 大 K 实验臂开关：RAG 分支检索条数（默认 10），可用 --rag.search.top-k=30 覆盖 */
+    @Value("${rag.search.top-k:10}")
+    private int ragSearchTopK;
 
     public TongYiRAGServiceImpl(TongYiBaseConfig tongYiBaseConfig,
                                 PromptConfig promptConfig,
@@ -94,7 +99,7 @@ public class TongYiRAGServiceImpl extends BaseTongYiService implements RAGServic
         return Mono.fromCallable(() -> {
                     // 检索知识
                     List<KnowledgeSearchResult> searchResults = knowledgeBaseService
-                            .searchKnowledge(SearchRequest.of(question));
+                            .searchKnowledge(SearchRequest.of(question, ragSearchTopK));
 
                     List<String> contexts = searchResults.stream()
                             .map(KnowledgeSearchResult::getContent)
