@@ -2,7 +2,7 @@
   "meta": {
     "created": "2026-10-08",
     "model_profile": "qwen-plus (rag/common/adaptive) + qwen-turbo (intent/normalize) —— 评测全程冻结，换模型=口径重置",
-    "corpus": "46 篇冻结语料（16 正典 + 6 干扰 + 14 变体），见 corpus-index.md",
+    "corpus": "46 篇冻结语料（10 正典 + 6 干扰 + 30 变体），见 corpus-index.md",
     "retrievalHitDefinition": "topK=10 检索结果的 fileName 中出现 expectDocKeyword 子串",
     "scoring": "两层制：迭代层=关键词命中（答案去空白后子串匹配 expectedFacts，全部命中才 pass）；终评层=LLM-as-judge + 人工抽检 10 条",
     "ttftDefinition": "从发起 HTTP 请求到首个 SSE 数据块到达（含意图识别/归一化/缓存检查全程）",

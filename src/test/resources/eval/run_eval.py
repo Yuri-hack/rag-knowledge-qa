@@ -4,17 +4,19 @@
 D3 评测 runner（迭代层：关键词命中判定）
 
 用法：
-  python3 run_eval.py --label baseline-qwen-plus            # 全量跑 + flush 缓存
-  python3 run_eval.py --label agent-v01 --endpoint agent    # 预留：D4 agent 端点
-  python3 run_eval.py --no-flush --label quick              # 不清缓存（仅调试用）
+  python3 run_eval.py --label baseline-qwen-plus            # 全量跑（关缓存 + flush）
+  python3 run_eval.py --label agent-v01 --endpoint agent    # agent 端点
+  python3 run_eval.py --no-flush --label quick              # 不动缓存（仅调试用）
 
 口径（与 qa.json meta 一致）：
-  - 每次全量评测前 flush rag:* 缓存（精确/语义答案/语义文档），防串轮污染
+  - 评测期间通过 /api/admin/cache/toggle 关闭三级缓存（跑完自动恢复），
+    并 flush rag:* 兜底；flush 后二次扫描校验，失败直接中止，防串轮污染
   - fact 匹配：答案与 expectedFacts 均去空白后做子串匹配，全部命中才 pass
   - shouldRetrieve=false 的题：拒答/兜底启发式判定（不做事实匹配）
   - 检索命中：/api/knowledge/search topK=10 的 fileName 中出现 expectDocKeyword
 """
 import argparse
+import atexit
 import json
 import re
 import subprocess
@@ -33,15 +35,32 @@ def norm(s: str) -> str:
     return re.sub(r"\s+", "", s or "")
 
 
-def flush_cache():
-    r = subprocess.run(
-        ["docker", "exec", "rag-redis-dev", "redis-cli", "--scan", "--pattern", "rag:*"],
-        capture_output=True, text=True)
-    keys = [k for k in r.stdout.split() if k.strip()]
+def redis_cli(*args: str) -> str:
+    r = subprocess.run(["docker", "exec", "rag-redis-dev", "redis-cli", *args],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        raise RuntimeError(f"redis-cli 失败: {r.stderr.strip() or r.stdout.strip()}")
+    return r.stdout
+
+
+def flush_cache() -> dict:
+    """清空 rag:* 并二次扫描校验，失败抛异常中止评测。返回 flush 报告。"""
+    keys = [k for k in redis_cli("--scan", "--pattern", "rag:*").splitlines() if k.strip()]
     for k in keys:
-        subprocess.run(["docker", "exec", "rag-redis-dev", "redis-cli", "DEL", k],
-                       capture_output=True)
-    print(f"[cache] flushed {len(keys)} keys")
+        redis_cli("DEL", k)
+    remaining = [k for k in redis_cli("--scan", "--pattern", "rag:*").splitlines() if k.strip()]
+    report = {"flushedKeys": len(keys), "remainingAfterFlush": len(remaining)}
+    print(f"[cache] flushed {len(keys)} keys, remaining {len(remaining)}")
+    if remaining:
+        raise RuntimeError(f"flush 校验失败，仍有 {len(remaining)} 个 key 残留: {remaining[:5]}")
+    return report
+
+
+def set_cache_enabled(enabled: bool) -> dict:
+    url = BASE + "/api/admin/cache/toggle?enabled=" + ("true" if enabled else "false")
+    req = urllib.request.Request(url, data=b"", method="POST")
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        return json.loads(resp.read().decode("utf-8", "ignore"))
 
 
 def stream_answer(question: str, endpoint: str = "baseline", mode: str = "agent", timeout: int = 120):
@@ -133,7 +152,11 @@ def main():
         questions = [q for q in questions if q["id"] in want]
 
     if not args.no_flush:
-        flush_cache()
+        set_cache_enabled(False)
+        atexit.register(set_cache_enabled, True)  # 跑完（含异常退出）自动恢复缓存
+        cache_report = {"disabledDuringRun": True, **flush_cache()}
+    else:
+        cache_report = {"disabledDuringRun": False, "note": "--no-flush 调试模式，未动缓存"}
 
     rows = []
     for q in questions:
@@ -198,7 +221,7 @@ def main():
     out = RESULTS / f"{args.label}-{ts}.json"
     out.write_text(json.dumps({
         "label": args.label, "endpoint": args.endpoint,
-        "flushed": not args.no_flush, "finishedAt": ts, "rows": rows,
+        "cache": cache_report, "finishedAt": ts, "rows": rows,
     }, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"[saved] {out}")
 
