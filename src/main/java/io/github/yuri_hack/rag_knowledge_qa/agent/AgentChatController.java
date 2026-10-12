@@ -36,7 +36,7 @@ public class AgentChatController {
         return Flux.<ServerSentEvent<String>>create(sink -> {
             AgentTrace trace = "singleshot".equals(mode)
                     ? agentLoop.runSingleShot(question, AgentPrompts.SYSTEM_V02)
-                    : agentLoop.run(question, AgentPrompts.SYSTEM_V02, maxSteps);
+                    : agentLoop.run(question, AgentPrompts.SYSTEM_V03, maxSteps);
 
             if (debug) {
                 for (AgentStep s : trace.getSteps()) {
