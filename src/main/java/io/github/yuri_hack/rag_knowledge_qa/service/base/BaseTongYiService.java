@@ -76,7 +76,10 @@ public abstract class BaseTongYiService {
                 .maxTokens(modelConfig.getMaxTokens())
                 .temperature(modelConfig.getTemperature())
                 .topP(modelConfig.getTopP())
-                .enableSearch(false);
+                // enableSearch 曾硬编码 false：与 tool calling 并存有冲突风险（D4 记录）。
+                // 现由独立开关 agent-enable-search 控制（默认 false），供 needs_web/联网实验开启；
+                // 不挂 modelConfig——ragModelConfig 与基线流式链路共用，避免误开
+                .enableSearch(Boolean.TRUE.equals(tongYiBaseConfig.getAgentEnableSearch()));
         // 工具列表为空时不发送 tools 字段（空数组部分端点会报错）
         if (tools != null && !tools.isEmpty()) {
             builder.tools(tools);

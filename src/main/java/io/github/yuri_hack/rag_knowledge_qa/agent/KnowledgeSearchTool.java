@@ -18,11 +18,19 @@ import java.util.List;
 @RequiredArgsConstructor
 public class KnowledgeSearchTool implements Tool {
 
-    /** 工具结果截断：agent 特有的上下文问题是循环里工具结果堆积（5步×5条就炸），不是聊天历史 */
-    private static final int MAX_CHUNK_CHARS = 400;
+    /**
+     * 检索配置与基线完全同构（2026-10-12 终态）：topK=10 + topRatio=0.5 —— 同召回宽度、
+     * 同 rerank 竞争池（10 选 5）、同最终 5 条。此前经历两版错误口径（未设 ratio→实得 3 条；
+     * 误设 ratio=1.0→只回 1 条，R03 badcase），见 prompt-changelog 三次订正。
+     * agent 与基线的单次检索自此等价，架构对比的剩余变量只有循环本身。
+     */
+    private static final int TOP_K = 10;
+    private static final double TOP_RATIO = 0.5;
 
-    /** agent 循环内省上下文用 topK=5（基线流水线是 10）；差异已记录在 prompt-changelog，D3 对齐口径 */
-    private static final int TOP_K = 5;
+    // 内容截断已移除（2026-10-12）：512 字符 chunk 截到 400 仅省 ~6-10% token，
+    // 却系统性砍掉 chunk 尾部的"文字版"数字行，制造基线不存在的失败面；
+    // 上下文控制的大杠杆是条数（topRatio）与搜索预算（AgentLoop 计数器）。
+    // 语料扩大/chunk 加长时再引入"按句边界截断 + offset 分页"（配合 DocumentDetailTool）。
 
     private final KnowledgeBaseService knowledgeBaseService;
 
@@ -51,6 +59,7 @@ public class KnowledgeSearchTool implements Tool {
         SearchRequest request = new SearchRequest();
         request.setQuery(query);
         request.setTopK(TOP_K);
+        request.setTopRatio(TOP_RATIO);
 
         List<KnowledgeSearchResult> results = knowledgeBaseService.searchKnowledge(request);
 
@@ -66,11 +75,7 @@ public class KnowledgeSearchTool implements Tool {
                     .append(" chunk#").append(r.getChunkIndex())
                     .append(" 相似度=").append(String.format("%.2f", r.getSimilarity()))
                     .append('\n');
-            String content = r.getContent() == null ? "" : r.getContent();
-            if (content.length() > MAX_CHUNK_CHARS) {
-                content = content.substring(0, MAX_CHUNK_CHARS) + "…(截断)";
-            }
-            sb.append(content).append('\n');
+            sb.append(r.getContent() == null ? "" : r.getContent()).append('\n');
         }
         return sb.toString();
     }

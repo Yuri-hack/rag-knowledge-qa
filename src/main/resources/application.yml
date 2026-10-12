@@ -32,6 +32,7 @@ aliyun:
 
 tongyi:
   api-key: ${ALIYUN_API_KEY}  # 在环境变量中配置阿里云apiKey
+  agent-enable-search: false  # agent 循环联网搜索开关（与 tool calling 并存会静默失效，见 docs/agent-优势区实验.md；联网应做成 Tool）
   rag-model-config:
     model: qwen-plus
     max-tokens: 2000

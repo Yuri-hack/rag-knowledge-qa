@@ -1,14 +1,14 @@
 {
   "meta": {
     "created": "2026-10-08",
-    "model_profile": "qwen-plus (rag/common/adaptive) + qwen-turbo (intent/normalize) —— 评测全程冻结，换模型=口径重置",
-    "corpus": "46 篇冻结语料（10 正典 + 6 干扰 + 30 变体），见 corpus-index.md",
-    "retrievalHitDefinition": "topK=10 检索结果的 fileName 中出现 expectDocKeyword 子串",
+    "model_profile": "qwen-plus 全模型（rag/common/adaptive/intent/normalize/rewrite，见 application.yml；旧记录写 qwen-turbo 与 yml 不符，2026-10-12 按 yml 订正）—— 评测全程冻结，换模型=口径重置。D6 起多轮题的检索 query 经 rewrite 模型（qwen-plus, temp=0）改写，属评测路径的一部分",
+    "corpus": "46 篇冻结语料（10 正典 + 6 干扰 + 30 变体），见 corpus-index.md；2026-10-12 语料升 v1.1（正典加 scope anchors + precedence 条款，S01 判分口径见该题 notes）",
+    "retrievalHitDefinition": "topK=10 检索（topRatio=0.5 动态截断后有效 5 条，2026-10-12 订正）的 fileName 中出现 expectDocKeyword 子串；MT 多轮题用末轮裸 query 检查（服务端实际用改写后 query，故 MT 题 retrievalHit 可能 false 但答对）",
     "scoring": "两层制：迭代层=关键词命中（答案去空白后子串匹配 expectedFacts，全部命中才 pass）；终评层=LLM-as-judge + 人工抽检 10 条",
     "ttftDefinition": "从发起 HTTP 请求到首个 SSE 数据块到达（含意图识别/归一化/缓存检查全程）",
     "cache": "每次全量评测前 flush rag:* 缓存（精确+语义答案+语义文档），否则串轮污染",
     "multiTurn": "D6 已并入（2026-10-12）：MT01-MT07 共 7 条，turns 数组=逐轮对话（末轮计分），sessionId 由 eval runner 按运行+题目隔离生成；--rewrite false 为可证伪对照模式",
-    "denominatorRule": "关键词层分母 = 26 - judgeRequired题(S01) = 25，passed=null 不计入；S01 只由 LLM-as-judge 终评、单独报告。facts覆盖含 S01 的 1 个 fact（分母 39）。合并口径写法：关键词 x/25 + judge y/1，写 /26 必须显式标注。教训：四臂表曾并存 24/26、24/25、25/26 三种写法（2026-10-12 订正）"
+    "denominatorRule": "关键词层分母 = 总题数 - judgeRequired题(S01)；2026-10-12 晚追加 R01-R03（compound_reasoning）后：总题数 36，关键词层分母 **35**，facts 覆盖分母 50。passed=null 不计入；S01 只由 LLM-as-judge 终评、单独报告。引用分部口径时必须标注题集范围（如四臂对比=当时的 26 题/分母25），禁止跨版本混写。教训：四臂表曾并存 24/26、24/25、25/26 三种写法（2026-10-12 订正）"
   },
   "questions": [
     {
@@ -182,6 +182,24 @@
       "turns": ["总部P4年假几天？", "那上海子公司呢？", "总部比上海子公司少几天？"],
       "expectedFacts": ["2天"], "expectDocKeyword": null, "shouldRetrieve": true,
       "notes": "D6 三轮跨轮聚合：需同时持有T1总部5天与T2子公司7天才能算出少2天"
+    },
+    {
+      "id": "R01", "category": "compound_reasoning",
+      "question": "一名P5员工司龄4年，今年已休6天年假，其中1天是法定节假日，今年还能再休几天年假？",
+      "expectedFacts": ["4天"], "expectDocKeyword": null, "shouldRetrieve": true,
+      "notes": "3步复合（corpus-index D5 遗留）：对照表P5=8+司龄满3年加1=9天 → 年假制度四.4法定节假日不计入→实休5天 → 9-5=4天。检索+规则+算术三段"
+    },
+    {
+      "id": "R02", "category": "compound_reasoning",
+      "question": "法定节假日加班了一天（8小时），选调休的话能换多少调休？这些调休最晚什么时候要用完？",
+      "expectedFacts": ["24小时", "3个月"], "expectDocKeyword": "加班与调休", "shouldRetrieve": true,
+      "notes": "同文档双跳+算术：加班制度 1:3 → 8小时×3=24小时；调休自生成起3个月内有效"
+    },
+    {
+      "id": "R03", "category": "compound_reasoning",
+      "question": "出差时航班取消了，改签费和临时住宿费公司给报吗？自己垫付的钱上限是多少，超过了怎么办？",
+      "expectedFacts": ["5000"], "expectDocKeyword": null, "shouldRetrieve": true,
+      "notes": "跨文档钩子（组B）：差旅制度第五条只给指针→必须跳《紧急费用审批绿色通道管理办法》：上限5000、超限须事前电话部门总监同意"
     }
   ]
 }
