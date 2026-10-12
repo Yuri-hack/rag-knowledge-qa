@@ -28,15 +28,26 @@ public class AgentChatController {
         this.agentLoop = agentLoop;
     }
 
+    /** mode 白名单：此前拼错的 mode（如 "singlesho"）会静默落入 agent 臂——评测臂选错在数字上不可见 */
+    private static final String MODE_AGENT = "agent";
+    private static final String MODE_SINGLESHOT = "singleshot";
+
     @GetMapping(value = "/agent", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<String>> agentChat(@RequestParam String question,
                                                    @RequestParam(defaultValue = "6") int maxSteps,
                                                    @RequestParam(defaultValue = "agent") String mode,
                                                    @RequestParam(defaultValue = "false") boolean debug) {
+        if (!MODE_AGENT.equals(mode) && !MODE_SINGLESHOT.equals(mode)) {
+            JsonObject err = new JsonObject();
+            err.addProperty("content", "");
+            err.addProperty("finished", true);
+            err.addProperty("errorMessage", "非法 mode: " + mode + "（仅支持 " + MODE_AGENT + "/" + MODE_SINGLESHOT + "）");
+            return Flux.just(ServerSentEvent.<String>builder().data(err.toString()).build());
+        }
         return Flux.<ServerSentEvent<String>>create(sink -> {
             // BC02 补记（2026-10-12）：此处曾残留 SYSTEM_V03，与回滚决策不一致，已修正——
             // 对外 endpoint 与实验结论必须同 prompt，版本可经 trace.promptVersion 校验
-            AgentTrace trace = "singleshot".equals(mode)
+            AgentTrace trace = MODE_SINGLESHOT.equals(mode)
                     ? agentLoop.runSingleShot(question, AgentPrompts.SYSTEM_V02)
                     : agentLoop.run(question, AgentPrompts.SYSTEM_V02, maxSteps);
 

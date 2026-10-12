@@ -34,6 +34,12 @@ public abstract class BaseTongYiService {
     protected final PromptConfig promptConfig;
 
     /**
+     * LLM 调用失败的约定前缀（"失败也是输入"协议）：ask() 失败时以此开头构造 assistant 消息，
+     * AgentLoop 依赖它区分"模型故障终止"与"正常终止"。集中成常量避免多处字面量漂移。
+     */
+    public static final String LLM_FAILURE_MARKER = "[模型调用失败] ";
+
+    /**
      * 超时挂在整个客户端上（ask 与流式共用）：ask 是 agent 循环的串行瓶颈，一次挂起=整轮挂起。
      * readTimeout 对流式调用按"块间最大间隔"生效，不影响长回答；baseUrl 传 null 沿用 SDK 默认。
      */
@@ -92,9 +98,9 @@ public abstract class BaseTongYiService {
                 GenerationResult result = generation.call(param);
                 GenerationUsage u = result.getUsage();
                 UsageInfo usageInfo = UsageInfo.builder()
-                        .inputTokens(u.getInputTokens())
-                        .outputTokens(u.getOutputTokens())
-                        .totalTokens(u.getTotalTokens())
+                        .inputTokens(u == null ? null : u.getInputTokens())
+                        .outputTokens(u == null ? null : u.getOutputTokens())
+                        .totalTokens(u == null ? null : u.getTotalTokens())
                         .build();
                 return new AskResult(result.getOutput().getChoices().get(0).getMessage(), usageInfo);
             } catch (Exception e) {
@@ -107,7 +113,7 @@ public abstract class BaseTongYiService {
         return new AskResult(
                 Message.builder()
                         .role(Role.ASSISTANT.getValue())
-                        .content("[模型调用失败] " + lastError.getMessage())
+                        .content(LLM_FAILURE_MARKER + lastError.getMessage())
                         .build(),
                 UsageInfo.builder().build());
     }

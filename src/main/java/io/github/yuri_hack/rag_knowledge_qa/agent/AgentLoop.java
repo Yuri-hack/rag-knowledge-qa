@@ -5,8 +5,8 @@ import com.alibaba.dashscope.common.Role;
 import com.alibaba.dashscope.tools.ToolBase;
 import com.alibaba.dashscope.tools.ToolCallBase;
 import com.alibaba.dashscope.tools.ToolCallFunction;
-import com.alibaba.dashscope.utils.JsonUtils;
 import io.github.yuri_hack.rag_knowledge_qa.service.base.AskResult;
+import io.github.yuri_hack.rag_knowledge_qa.service.base.BaseTongYiService;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -39,6 +39,9 @@ public class AgentLoop {
      *  get_document_detail 无预算，无上限时一次请求可拖起数千次 LLM 调用） */
     private static final int MAX_STEPS_LIMIT = 10;
 
+    /** 检索预算超限的约定前缀（与 ToolRegistry 失败标记同风格，供 success 判定使用） */
+    private static final String SEARCH_BUDGET_MARKER = "[检索预算已用完]";
+
     public AgentTrace run(String question, String systemPrompt, int maxSteps) {
         maxSteps = Math.min(maxSteps, MAX_STEPS_LIMIT);
         AgentTrace trace = new AgentTrace(question);
@@ -57,8 +60,7 @@ public class AgentLoop {
             AgentStep step = trace.addStep(stepNo, ask.usage());
 
             // LLM 调用失败（ask 已把异常吞成失败文本）：标记终止，不无限重试
-            if (reply.getToolCalls() == null && reply.getContent() != null
-                    && reply.getContent().startsWith("[模型调用失败]")) {
+            if (reply.getToolCalls() == null && isLlmFailure(reply.getContent())) {
                 step.setContent(reply.getContent());
                 trace.llmFailed(reply.getContent());
                 return trace;
@@ -80,8 +82,8 @@ public class AgentLoop {
                 String fnArgs = fn.getFunction().getArguments();
 
                 String result = executeWithSearchBudget(fnName, fnArgs, toolUsage);
-                boolean success = !result.startsWith("[工具执行失败]") && !result.startsWith("[未知工具]")
-                        && !result.startsWith("[检索预算已用完]");
+                boolean success = !ToolRegistry.isFailure(result)
+                        && !result.startsWith(SEARCH_BUDGET_MARKER);
                 step.addToolCall(fnName, fnArgs, excerpt(result), success);
 
                 messages.add(Message.builder()
@@ -100,7 +102,7 @@ public class AgentLoop {
         AgentStep finalStep = trace.addStep(maxSteps + 1, forced.usage());
         String forcedContent = forced.message().getContent();
         // 与主循环对称的失败检测：LLM 故障不能记成"步数打满"（排障/评测口径都会被带偏）
-        if (forcedContent != null && forcedContent.startsWith("[模型调用失败]")) {
+        if (isLlmFailure(forcedContent)) {
             finalStep.setContent(forcedContent);
             trace.llmFailed(forcedContent);
             return trace;
@@ -122,7 +124,8 @@ public class AgentLoop {
         com.google.gson.JsonObject args = new com.google.gson.JsonObject();
         args.addProperty("query", question);
         String result = toolRegistry.execute("search_knowledge", args.toString());
-        step1.addToolCall("search_knowledge", question, excerpt(result), !result.startsWith("["));
+        // 之前用 "!result.startsWith(\"[\")" 的裸前缀猜测——统一走 ToolRegistry 的失败判定
+        step1.addToolCall("search_knowledge", question, excerpt(result), !ToolRegistry.isFailure(result));
 
         List<Message> messages = new ArrayList<>();
         messages.add(Message.builder().role(Role.SYSTEM.getValue()).content(systemPrompt).build());
@@ -131,8 +134,14 @@ public class AgentLoop {
 
         AskResult ask = agentService.ask(messages, List.of());
         AgentStep step2 = trace.addStep(2, ask.usage());
-        step2.setContent(ask.message().getContent());
-        trace.complete(ask.message().getContent());
+        String content = ask.message().getContent();
+        step2.setContent(content);
+        // 与主循环对称：LLM 故障不能记成 COMPLETED（否则 B 臂评测会把故障当答案对）
+        if (isLlmFailure(content)) {
+            trace.llmFailed(content);
+        } else {
+            trace.complete(content);
+        }
         return trace;
     }
 
@@ -144,10 +153,15 @@ public class AgentLoop {
     private String executeWithSearchBudget(String name, String argumentsJson, Map<String, Integer> usage) {
         if ("search_knowledge".equals(name)
                 && usage.merge(name, 1, Integer::sum) > AgentPrompts.SEARCH_BUDGET) {
-            return "[检索预算已用完] search_knowledge 已调用满 " + AgentPrompts.SEARCH_BUDGET + " 次，"
+            return SEARCH_BUDGET_MARKER + " search_knowledge 已调用满 " + AgentPrompts.SEARCH_BUDGET + " 次，"
                     + "请基于已获得的全部信息直接回答最初的问题，并说明仍有不足之处，不要再调用任何工具。";
         }
         return toolRegistry.execute(name, argumentsJson);
+    }
+
+    /** ask() 失败协议见 {@link BaseTongYiService#LLM_FAILURE_MARKER} */
+    private static boolean isLlmFailure(String content) {
+        return content != null && content.startsWith(BaseTongYiService.LLM_FAILURE_MARKER);
     }
 
     private static String excerpt(String s) {
