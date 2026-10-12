@@ -35,7 +35,12 @@ public class AgentLoop {
         this.toolRegistry = toolRegistry;
     }
 
+    /** maxSteps 硬上限：暴露在 HTTP 参数上的成本开关，必须有界（检索预算只限 search_knowledge，
+     *  get_document_detail 无预算，无上限时一次请求可拖起数千次 LLM 调用） */
+    private static final int MAX_STEPS_LIMIT = 10;
+
     public AgentTrace run(String question, String systemPrompt, int maxSteps) {
+        maxSteps = Math.min(maxSteps, MAX_STEPS_LIMIT);
         AgentTrace trace = new AgentTrace(question);
         trace.setPromptVersion(AgentPrompts.versionOf(systemPrompt));
         List<ToolBase> tools = toolRegistry.toToolFunctions();
@@ -93,8 +98,15 @@ public class AgentLoop {
                 .build());
         AskResult forced = agentService.ask(messages, List.of());
         AgentStep finalStep = trace.addStep(maxSteps + 1, forced.usage());
-        finalStep.setContent(forced.message().getContent());
-        trace.maxStepsReached(forced.message().getContent());
+        String forcedContent = forced.message().getContent();
+        // 与主循环对称的失败检测：LLM 故障不能记成"步数打满"（排障/评测口径都会被带偏）
+        if (forcedContent != null && forcedContent.startsWith("[模型调用失败]")) {
+            finalStep.setContent(forcedContent);
+            trace.llmFailed(forcedContent);
+            return trace;
+        }
+        finalStep.setContent(forcedContent);
+        trace.maxStepsReached(forcedContent);
         return trace;
     }
 

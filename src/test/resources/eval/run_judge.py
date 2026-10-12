@@ -10,9 +10,14 @@ prompt 冻结在下方 JUDGE_SYSTEM_PROMPT（v1，2026-10-12），温度 0，改
   python3 run_judge.py --results results/arm-C-agent-v021-20261008-161604.json
   python3 run_judge.py --results results/xxx.json --rows all          # 默认只评 judgeRequired 题
   python3 run_judge.py --results results/xxx.json --ids S01,MA01
-  python3 run_judge.py --results results/xxx.json --model qwen3-max   # 四臂表口径
+  python3 run_judge.py --results results/xxx.json --model qwen-max   # 本账号可用（qwen3-max 不存在，404）
 
 输出：results/<输入文件名>-judged-<时间戳>.json（每题 verdict/reason + 汇总）
+
+prompt 版本：
+  v1（2026-10-12 上午）仅通用判据，**未曾使用、无任何结果产出**；
+  v2（2026-10-12）= v1 + 范围外问题判据（needs_web 类）：judge 不知道语料边界，v1 下 W01
+  这类"引用真实世界知识作答"会被误判 CORRECT，与评测设计（拒答/联网/幻觉三分类）相悖。
 """
 import argparse
 import json
@@ -27,7 +32,12 @@ HERE = Path(__file__).parent
 RESULTS = HERE / "results"
 API_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
 
-# ===== judge prompt（冻结 v1，2026-10-12：与四臂对比判定口径一致，改动即口径重置） =====
+# 密钥：优先 DASHSCOPE_API_KEY，兼容本项目约定的 ALIYUN_API_KEY（同一个 DashScope key）
+API_KEY = os.environ.get("DASHSCOPE_API_KEY") or os.environ.get("ALIYUN_API_KEY") or ""
+if not API_KEY:
+    raise SystemExit("缺少 API key：请 export DASHSCOPE_API_KEY（或 ALIYUN_API_KEY）后重试")
+
+# ===== judge prompt（冻结 v2，2026-10-12：v1 + 范围外判据；v1 未曾使用。改动即口径重置） =====
 JUDGE_SYSTEM_PROMPT = """你是企业知识库问答系统的质量裁判。根据【问题】和【系统回答】判断回答质量。\
 【参考要点】来自评测集，仅供对照：它覆盖可能不全，也不是唯一正确的表述方式。
 
@@ -37,6 +47,10 @@ JUDGE_SYSTEM_PROMPT = """你是企业知识库问答系统的质量裁判。根�
 - PARTIAL：回答了部分要点或明显不完整，但没有事实错误；诚实说明知识库中缺失、不编造，也算 PARTIAL。
 - WRONG：数值/事实错误；答非所问；把其他主体/旧版本的规定当作所问内容且未说明；\
 编造知识库中不存在的内容；应当回答却沉默或回避。
+- 范围外问题（【参考要点】为空，且问题明显超出企业内部制度知识库的范围，如国家节假日安排、\
+外部时事、生活服务类）：这是一个内部制度知识库系统——回答明确声明"知识库未覆盖/无法确认/\
+建议查询官方渠道" = CORRECT（诚实拒答）；未声明来源局限、以确定性口吻直接作答 = WRONG\
+（越权作答：内容无法核实，即使碰巧正确）。
 
 只输出一个 JSON 对象，不要输出任何其他内容：
 {"verdict": "CORRECT|PARTIAL|WRONG", "reason": "不超过50字的理由"}"""
@@ -61,7 +75,7 @@ def call_judge(model: str, question: str, facts: list, answer: str, timeout: int
         data=json.dumps(body).encode("utf-8"),
         headers={
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {os.environ['DASHSCOPE_API_KEY']}",
+            "Authorization": f"Bearer {API_KEY}",
         })
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -86,7 +100,7 @@ def call_judge(model: str, question: str, facts: list, answer: str, timeout: int
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--results", required=True, help="run_eval.py 产出的结果 JSON 路径")
-    ap.add_argument("--model", default="qwen3-max")
+    ap.add_argument("--model", default="qwen-max")
     ap.add_argument("--rows", choices=["required", "all"], default="required",
                     help="required=只评 judgeRequired 题（默认，复现表头口径）；all=全部")
     ap.add_argument("--ids", default="", help="逗号分隔，只评指定题目（优先级高于 --rows）")
@@ -101,7 +115,7 @@ def main():
     elif args.rows == "required":
         rows = [r for r in rows if r.get("judgeRequired")]
 
-    print(f"judge={args.model} temp=0 prompt=judge-v1(冻结)  待评 {len(rows)} 题  源: {src.name}\n")
+    print(f"judge={args.model} temp=0 prompt=judge-v2(冻结)  待评 {len(rows)} 题  源: {src.name}\n")
     judged = []
     for r in rows:
         verdict, reason, err = call_judge(args.model, r["question"],
@@ -123,7 +137,7 @@ def main():
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
     out = RESULTS / f"{src.stem}-judged-{ts}.json"
     out.write_text(json.dumps({
-        "source": src.name, "model": args.model, "judgePromptVersion": "v1(冻结)",
+        "source": src.name, "model": args.model, "judgePromptVersion": "v2(冻结)",
         "finishedAt": ts, "rows": judged,
     }, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"[saved] {out}")

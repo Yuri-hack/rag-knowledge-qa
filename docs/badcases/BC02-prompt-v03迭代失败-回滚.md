@@ -37,4 +37,5 @@ AG02：step1"报销 时限"→ step2"审批 时限 工作日"→ step3 拉差旅
 > agent 模式自此实际仍跑 V03（`70d8d6c` 起留存）。当日已修正为 `SYSTEM_V02`。
 > 影响范围核实：四臂表 C 臂数据（10-08 产出，早于引用漂移）与 baseline（走 /rag/stream）不受影响；
 > `v03-retest`、MA01 budget/temp=0 实验为文档明示的 V03 实验，非误用。
-> 此后 endpoint 的 SSE done 事件与评测结果 JSON 均携带 `promptVersion` 字段，同类漂移可在数据层发现。
+> 此后 **agent 端点**的 SSE done 事件与评测结果 JSON 均携带 `promptVersion` 字段，同类漂移可在数据层发现
+> （基线 /rag/stream 路径无 prompt 版本概念，结果 JSON 中该字段为 null，属预期）。

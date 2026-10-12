@@ -1,0 +1,41 @@
+{
+ "label": "s01-v11-agent",
+ "endpoint": "agent",
+ "promptVersion": "v0.2.1",
+ "rewrite": true,
+ "cache": {
+  "disabledDuringRun": true,
+  "flushedKeys": 1,
+  "remainingAfterFlush": 0
+ },
+ "finishedAt": "20261012-175042",
+ "rows": [
+  {
+   "id": "S01",
+   "category": "scope_directed",
+   "question": "上海子公司的P5员工年假是几天？",
+   "passed": null,
+   "judgeRequired": true,
+   "factHits": [
+    "10天"
+   ],
+   "factsExpected": [
+    "10天"
+   ],
+   "shouldRetrieve": true,
+   "retrievalHit": true,
+   "retrievedFiles": [
+    "C01-上海子公司年假管理规定",
+    "职级与假期对照表",
+    "年假管理制度",
+    "C03-上海子公司病假管理办法",
+    "B02-2023年年假管理制度"
+   ],
+   "tokens": 2123,
+   "ttftMs": 5652,
+   "totalMs": 5653,
+   "error": null,
+   "answer": "我已检索到《C01-上海子公司年假管理规定》（documentId=DOC_1791444230495_d03ce35f），其中明确指出：“P5 职级员工每年 10 天”，且该制度适用范围为“云启科技上海子公司全体员工”。\n\n问题中限定主体为“上海子公司”“P5员工”，年份为现行（2026年），检索结果完全覆盖，无冲突，也无缺失子问题。\n\n因此，答案可直接给出。\n\n上海子公司的P5员工年假是10天。"
+  }
+ ]
+}
