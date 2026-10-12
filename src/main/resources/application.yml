@@ -35,13 +35,13 @@ tongyi:
   rag-model-config:
     model: qwen-plus
     max-tokens: 2000
-    temperature: 0.2
+    temperature: 0.0
     top-p: 0.8
     enable-search: false
   common-model-config:
     model: qwen-plus
     max-tokens: 2000
-    temperature: 0.2
+    temperature: 0.0
     top-p: 0.8
     enable-search: true
   intent-model-config:
@@ -59,7 +59,7 @@ tongyi:
   adaptive-model-config:
     model: qwen-plus
     max-tokens: 2000
-    temperature: 0.2
+    temperature: 0.0
     top-p: 0.8
     enable-search: false
 
