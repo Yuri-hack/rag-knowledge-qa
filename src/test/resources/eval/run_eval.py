@@ -64,14 +64,14 @@ def set_cache_enabled(enabled: bool) -> dict:
 
 
 def stream_answer(question: str, endpoint: str = "baseline", mode: str = "agent", timeout: int = 120):
-    """调问答端点，返回 (answer, usage, ttft_ms, total_ms, error)"""
+    """调问答端点，返回 (answer, usage, ttft_ms, total_ms, error, prompt_version)"""
     if endpoint in ("agent", "singleshot"):
         qs = {"question": question, "mode": mode, "maxSteps": 6, "debug": "true"}
         url = BASE + "/api/chat/agent?" + urllib.parse.urlencode(qs)
     else:
         url = BASE + "/api/chat/rag/stream?" + urllib.parse.urlencode({"question": question})
     t0 = time.time()
-    answer, usage, error = [], None, None
+    answer, usage, error, prompt_version = [], None, None, None
     ttft = None
     req = urllib.request.Request(url, headers={"Accept": "text/event-stream"})
     try:
@@ -93,11 +93,12 @@ def stream_answer(question: str, endpoint: str = "baseline", mode: str = "agent"
                     error = obj["errorMessage"]
                 if obj.get("finished"):
                     usage = obj.get("usage")
+                    prompt_version = obj.get("promptVersion")  # BC02 教训：结果必须能对回 prompt 版本
                     break
     except Exception as e:  # noqa: BLE001
         error = f"request failed: {e}"
     total = (time.time() - t0) * 1000
-    return "".join(answer), usage, ttft, total, error
+    return "".join(answer), usage, ttft, total, error, prompt_version
 
 
 def search_files(query: str, top_k: int = 10):
@@ -162,7 +163,7 @@ def main():
     for q in questions:
         qid, cat = q["id"], q["category"]
         facts = [norm(f) for f in q.get("expectedFacts", [])]
-        answer, usage, ttft, total, error = stream_answer(
+        answer, usage, ttft, total, error, prompt_version = stream_answer(
             q["question"], endpoint=args.endpoint, mode=args.mode)
         ans_n = norm(answer)
 
@@ -214,13 +215,13 @@ def main():
               + (f"  avgTTFT={int(sum(tt)/len(tt))}ms" if tt else "")
               + (f"  avgTotal={int(sum(ttot)/len(ttot))}ms" if ttot else ""))
     ok = sum(1 for r in rows if r["passed"])
-    print(f"\nTOTAL {ok}/{len(rows)}  label={args.label} endpoint={args.endpoint}")
+    print(f"\nTOTAL {ok}/{len(rows)}  label={args.label} endpoint={args.endpoint} prompt={prompt_version}")
 
     RESULTS.mkdir(exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
     out = RESULTS / f"{args.label}-{ts}.json"
     out.write_text(json.dumps({
-        "label": args.label, "endpoint": args.endpoint,
+        "label": args.label, "endpoint": args.endpoint, "promptVersion": prompt_version,
         "cache": cache_report, "finishedAt": ts, "rows": rows,
     }, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"[saved] {out}")

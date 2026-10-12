@@ -34,9 +34,11 @@ public class AgentChatController {
                                                    @RequestParam(defaultValue = "agent") String mode,
                                                    @RequestParam(defaultValue = "false") boolean debug) {
         return Flux.<ServerSentEvent<String>>create(sink -> {
+            // BC02 补记（2026-10-12）：此处曾残留 SYSTEM_V03，与回滚决策不一致，已修正——
+            // 对外 endpoint 与实验结论必须同 prompt，版本可经 trace.promptVersion 校验
             AgentTrace trace = "singleshot".equals(mode)
                     ? agentLoop.runSingleShot(question, AgentPrompts.SYSTEM_V02)
-                    : agentLoop.run(question, AgentPrompts.SYSTEM_V03, maxSteps);
+                    : agentLoop.run(question, AgentPrompts.SYSTEM_V02, maxSteps);
 
             if (debug) {
                 for (AgentStep s : trace.getSteps()) {
@@ -53,14 +55,15 @@ public class AgentChatController {
             }
 
             JsonObject usage = new JsonObject();
-            usage.addProperty("inputTokens", 0);
-            usage.addProperty("outputTokens", 0);
+            usage.addProperty("inputTokens", trace.getInputTokens());
+            usage.addProperty("outputTokens", trace.getOutputTokens());
             usage.addProperty("totalTokens", trace.getTotalTokens());
 
             JsonObject done = new JsonObject();
             done.addProperty("content", trace.getFinalAnswer() == null ? "" : trace.getFinalAnswer());
             done.addProperty("finished", true);
             done.add("usage", usage);
+            done.addProperty("promptVersion", trace.getPromptVersion());
             done.addProperty("termination", String.valueOf(trace.getTerminationReason()));
             done.addProperty("steps", trace.getSteps().size());
             done.addProperty("durationMs", trace.getDurationMs());

@@ -22,6 +22,7 @@ public class AgentTrace {
     private String finalAnswer;
     private TerminationReason terminationReason;
     private long endedAtMs;
+    private String promptVersion = "unknown";
 
     public AgentTrace(String question) {
         this.question = question;
@@ -49,6 +50,24 @@ public class AgentTrace {
         this.finalAnswer = message;
         this.terminationReason = TerminationReason.LLM_FAILURE;
         this.endedAtMs = System.currentTimeMillis();
+    }
+
+    public void setPromptVersion(String promptVersion) {
+        this.promptVersion = promptVersion;
+    }
+
+    public int getInputTokens() {
+        return steps.stream()
+                .mapToInt(s -> s.getUsage() == null || s.getUsage().getInputTokens() == null
+                        ? 0 : s.getUsage().getInputTokens())
+                .sum();
+    }
+
+    public int getOutputTokens() {
+        return steps.stream()
+                .mapToInt(s -> s.getUsage() == null || s.getUsage().getOutputTokens() == null
+                        ? 0 : s.getUsage().getOutputTokens())
+                .sum();
     }
 
     public int getTotalTokens() {
@@ -90,6 +109,7 @@ public class AgentTrace {
         sb.append("[stats] 终止=").append(terminationReason)
                 .append(" 步数=").append(steps.size())
                 .append(" 总tokens=").append(getTotalTokens())
+                .append(" prompt=").append(promptVersion)
                 .append(" 耗时=").append(getDurationMs()).append("ms\n");
         return sb.toString();
     }

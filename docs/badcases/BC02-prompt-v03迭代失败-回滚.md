@@ -32,3 +32,9 @@ AG02：step1"报销 时限"→ step2"审批 时限 工作日"→ step3 拉差旅
 1. 语料侧：关键条款增加同义关键词（语料冻结，不可行）
 2. 检索侧：混合检索（BM25+向量）——D7 传输层迁移后可评估
 3. 接受现状：如实记录，评测按实际水位报告
+
+> **2026-10-12 引用修正补记**：回滚时 `AgentChatController.java:39` 的 endpoint 引用未同步改回 V02，
+> agent 模式自此实际仍跑 V03（`70d8d6c` 起留存）。当日已修正为 `SYSTEM_V02`。
+> 影响范围核实：四臂表 C 臂数据（10-08 产出，早于引用漂移）与 baseline（走 /rag/stream）不受影响；
+> `v03-retest`、MA01 budget/temp=0 实验为文档明示的 V03 实验，非误用。
+> 此后 endpoint 的 SSE done 事件与评测结果 JSON 均携带 `promptVersion` 字段，同类漂移可在数据层发现。

@@ -10,7 +10,9 @@ import io.github.yuri_hack.rag_knowledge_qa.service.base.AskResult;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 正式 agent 循环（D2）：
@@ -35,7 +37,10 @@ public class AgentLoop {
 
     public AgentTrace run(String question, String systemPrompt, int maxSteps) {
         AgentTrace trace = new AgentTrace(question);
+        trace.setPromptVersion(AgentPrompts.versionOf(systemPrompt));
         List<ToolBase> tools = toolRegistry.toToolFunctions();
+        // 检索预算计数器（按 tool name 计次）：prompt 里的预算只是约定，这里是强制
+        Map<String, Integer> toolUsage = new HashMap<>();
 
         List<Message> messages = new ArrayList<>();
         messages.add(Message.builder().role(Role.SYSTEM.getValue()).content(systemPrompt).build());
@@ -69,8 +74,9 @@ public class AgentLoop {
                 String fnName = fn.getFunction().getName();
                 String fnArgs = fn.getFunction().getArguments();
 
-                String result = toolRegistry.execute(fnName, fnArgs);
-                boolean success = !result.startsWith("[工具执行失败]") && !result.startsWith("[未知工具]");
+                String result = executeWithSearchBudget(fnName, fnArgs, toolUsage);
+                boolean success = !result.startsWith("[工具执行失败]") && !result.startsWith("[未知工具]")
+                        && !result.startsWith("[检索预算已用完]");
                 step.addToolCall(fnName, fnArgs, excerpt(result), success);
 
                 messages.add(Message.builder()
@@ -98,6 +104,7 @@ public class AgentLoop {
      */
     public AgentTrace runSingleShot(String question, String systemPrompt) {
         AgentTrace trace = new AgentTrace(question);
+        trace.setPromptVersion(AgentPrompts.versionOf(systemPrompt));
 
         AgentStep step1 = trace.addStep(1, null);
         com.google.gson.JsonObject args = new com.google.gson.JsonObject();
@@ -115,6 +122,20 @@ public class AgentLoop {
         step2.setContent(ask.message().getContent());
         trace.complete(ask.message().getContent());
         return trace;
+    }
+
+    /**
+     * BC01 预算显式化的工程化收尾：prompt 的"search_knowledge 最多 3 次"只是约定，
+     * 这里按 tool name 计数强制执行——超预算不执行检索，返回固定文本让模型
+     * 按"失败即输入"基于已有信息作答。
+     */
+    private String executeWithSearchBudget(String name, String argumentsJson, Map<String, Integer> usage) {
+        if ("search_knowledge".equals(name)
+                && usage.merge(name, 1, Integer::sum) > AgentPrompts.SEARCH_BUDGET) {
+            return "[检索预算已用完] search_knowledge 已调用满 " + AgentPrompts.SEARCH_BUDGET + " 次，"
+                    + "请基于已获得的全部信息直接回答最初的问题，并说明仍有不足之处，不要再调用任何工具。";
+        }
+        return toolRegistry.execute(name, argumentsJson);
     }
 
     private static String excerpt(String s) {
