@@ -7,7 +7,8 @@
     "scoring": "两层制：迭代层=关键词命中（答案去空白后子串匹配 expectedFacts，全部命中才 pass）；终评层=LLM-as-judge + 人工抽检 10 条",
     "ttftDefinition": "从发起 HTTP 请求到首个 SSE 数据块到达（含意图识别/归一化/缓存检查全程）",
     "cache": "每次全量评测前 flush rag:* 缓存（精确+语义答案+语义文档），否则串轮污染",
-    "multiTurn": "D6 追加多轮用例后并入本文件"
+    "multiTurn": "D6 追加多轮用例后并入本文件",
+    "denominatorRule": "关键词层分母 = 26 - judgeRequired题(S01) = 25，passed=null 不计入；S01 只由 LLM-as-judge 终评、单独报告。facts覆盖含 S01 的 1 个 fact（分母 39）。合并口径写法：关键词 x/25 + judge y/1，写 /26 必须显式标注。教训：四臂表曾并存 24/26、24/25、25/26 三种写法（2026-10-12 订正）"
   },
   "questions": [
     {
