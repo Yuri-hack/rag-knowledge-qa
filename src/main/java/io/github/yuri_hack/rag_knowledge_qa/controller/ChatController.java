@@ -20,8 +20,10 @@ public class ChatController {
     private final ChatOrchestrationService chatOrchestrationService;
 
     @GetMapping(value = "/rag/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<StreamChatResponse> ragChatStream(@RequestParam String question) {
-        return chatOrchestrationService.chatStream(question)
+    public Flux<StreamChatResponse> ragChatStream(@RequestParam String question,
+                                                  @RequestParam(required = false) String sessionId,
+                                                  @RequestParam(defaultValue = "true") boolean rewrite) {
+        return chatOrchestrationService.chatStream(question, sessionId, rewrite)
                 .onErrorResume(e -> {
                     log.error("RAG流式调用异常", e);
                     return Flux.just(StreamChatResponse.builder()

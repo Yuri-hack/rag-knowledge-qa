@@ -14,4 +14,5 @@ public class TongYiBaseConfig {
     private TongYiModelConfig intentModelConfig;
     private TongYiModelConfig normalizeModelConfig;
     private TongYiModelConfig adaptiveModelConfig;
+    private TongYiModelConfig rewriteModelConfig;
 }

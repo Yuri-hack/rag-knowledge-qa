@@ -131,26 +131,12 @@ public abstract class BaseTongYiService {
     }
 
     /**
-     * 缓存回写与 SSE 订阅者解耦（修复原 doOnComplete 方案"客户端中途断连就丢缓存"）：
-     * cache() 使上游订阅独立于下游——客户端 cancel 后源照常跑完，由侧车道订阅者
-     * 在生成完成时回写；cacheAction 收到完整累积答案（行为与原 doOnComplete 一致）。
+     * 缓存回写与 SSE 订阅者解耦（修复原 doOnComplete 方案"客户端中途断连就丢缓存"），
+     * 实现见 {@link io.github.yuri_hack.rag_knowledge_qa.util.ReactorUtils#writeAnswerDetached}。
      */
     protected Flux<StreamChatResponse> writeCacheDetached(Flux<StreamChatResponse> source,
                                                           Consumer<String> cacheAction) {
-        return Flux.defer(() -> {
-            StringBuilder fullAnswer = new StringBuilder();
-            Flux<StreamChatResponse> shared = source
-                    .doOnNext(r -> {
-                        if (r.getContent() != null) {
-                            fullAnswer.append(r.getContent());
-                        }
-                    })
-                    .cache();
-            shared.subscribe(r -> { },
-                    e -> log.warn("缓存车道生成失败，跳过缓存回写", e),
-                    () -> cacheAction.accept(fullAnswer.toString()));
-            return shared;
-        });
+        return io.github.yuri_hack.rag_knowledge_qa.util.ReactorUtils.writeAnswerDetached(source, cacheAction);
     }
 
     /**

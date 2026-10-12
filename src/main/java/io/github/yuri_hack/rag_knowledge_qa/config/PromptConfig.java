@@ -18,4 +18,7 @@ public class PromptConfig {
     private String normalizePrompt;
 
     private String adaptiveAnswerPrompt;
+
+    /** D6：多轮检索 query 改写 */
+    private String rewritePrompt;
 }

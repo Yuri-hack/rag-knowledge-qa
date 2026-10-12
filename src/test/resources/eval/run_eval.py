@@ -63,13 +63,19 @@ def set_cache_enabled(enabled: bool) -> dict:
         return json.loads(resp.read().decode("utf-8", "ignore"))
 
 
-def stream_answer(question: str, endpoint: str = "baseline", mode: str = "agent", timeout: int = 120):
-    """调问答端点，返回 (answer, usage, ttft_ms, total_ms, error, prompt_version)"""
+def stream_answer(question: str, endpoint: str = "baseline", mode: str = "agent",
+                  timeout: int = 120, session: str = None, rewrite: bool = True):
+    """调问答端点，返回 (answer, usage, ttft_ms, total_ms, error, prompt_version)。
+    session 非空时带 sessionId（D6 多轮）+ rewrite 开关。"""
     if endpoint in ("agent", "singleshot"):
         qs = {"question": question, "mode": mode, "maxSteps": 6, "debug": "true"}
         url = BASE + "/api/chat/agent?" + urllib.parse.urlencode(qs)
     else:
-        url = BASE + "/api/chat/rag/stream?" + urllib.parse.urlencode({"question": question})
+        qs = {"question": question}
+        if session:
+            qs["sessionId"] = session
+            qs["rewrite"] = "true" if rewrite else "false"
+        url = BASE + "/api/chat/rag/stream?" + urllib.parse.urlencode(qs)
     t0 = time.time()
     answer, usage, error, prompt_version = [], None, None, None
     ttft = None
@@ -142,9 +148,12 @@ def main():
     ap.add_argument("--label", default="baseline")
     ap.add_argument("--endpoint", default="baseline", choices=["baseline", "agent", "singleshot"])
     ap.add_argument("--mode", default="agent")
+    ap.add_argument("--rewrite", default="true", choices=["true", "false"],
+                    help="D6 多轮 query 改写开关（可证伪实验：false 应使多轮题失败）")
     ap.add_argument("--no-flush", action="store_true")
     ap.add_argument("--ids", default="", help="逗号分隔，只跑指定题目（稳定性复测用）")
     args = ap.parse_args()
+    rewrite = args.rewrite == "true"
 
     qa = json.loads((HERE / "qa.json").read_text(encoding="utf-8"))
     questions = qa["questions"]
@@ -159,12 +168,27 @@ def main():
     else:
         cache_report = {"disabledDuringRun": False, "note": "--no-flush 调试模式，未动缓存"}
 
+    run_ts = datetime.now().strftime("%Y%m%d-%H%M%S")
     rows = []
     for q in questions:
         qid, cat = q["id"], q["category"]
         facts = [norm(f) for f in q.get("expectedFacts", [])]
-        answer, usage, ttft, total, error, prompt_version = stream_answer(
-            q["question"], endpoint=args.endpoint, mode=args.mode)
+
+        # D6 多轮：turns 非空时逐轮发送（同一 sessionId），末轮答案计分
+        turns = q.get("turns") or [q["question"]]
+        session_id = None
+        if len(turns) > 1:
+            session_id = f"eval-{args.label}-{run_ts}-{qid}"  # 每次运行独立，避免会话串场
+        turn_answers, turn_tokens = [], []
+        usage, ttft, error, prompt_version = None, None, None, None
+        for i, t in enumerate(turns):
+            answer, usage, ttft, total, error, prompt_version = stream_answer(
+                t, endpoint=args.endpoint, mode=args.mode, session=session_id, rewrite=rewrite)
+            turn_answers.append(answer)
+            turn_tokens.append((usage or {}).get("totalTokens") or 0)
+            if session_id and i < len(turns) - 1:
+                time.sleep(1.0)  # 等上一轮的 detached 会话追加落库（毫秒级竞态，真实用户间隔秒级不受影响）
+        answer = turn_answers[-1]
         ans_n = norm(answer)
 
         if q.get("shouldRetrieve", True):
@@ -173,7 +197,7 @@ def main():
                 passed = None  # 关键词层已证明会假阳性，交终评 judge
             else:
                 passed = bool(facts) and len(fact_hits) == len(facts)
-            names, err2 = search_files(q["question"])
+            names, err2 = search_files(turns[-1])
             names_n = [norm(n) for n in names]
             doc_hit = bool(q.get("expectDocKeyword")) and any(
                 norm(q["expectDocKeyword"]) in n for n in names_n)
@@ -182,16 +206,22 @@ def main():
             doc_hit = None
             names, err2 = [], None
 
-        rows.append({
-            "id": qid, "category": cat, "question": q["question"],
+        row = {
+            "id": qid, "category": cat, "question": q.get("question") or turns[-1],
             "passed": passed, "judgeRequired": bool(q.get("judgeRequired")),
             "factHits": fact_hits, "factsExpected": facts,
             "shouldRetrieve": q.get("shouldRetrieve", True),
             "retrievalHit": doc_hit, "retrievedFiles": names[:10],
-            "tokens": (usage or {}).get("totalTokens"), "ttftMs": round(ttft or 0),
+            "tokens": (sum(turn_tokens) if any(turn_tokens) else None),
+            "ttftMs": round(ttft or 0),
             "totalMs": round(total), "error": error or err2,
             "answer": answer[:2000],
-        })
+        }
+        if len(turns) > 1:
+            row["turns"] = turns
+            row["turnAnswers"] = [a[:800] for a in turn_answers]
+            row["sessionId"] = session_id
+        rows.append(row)
         mark = "✓" if passed else ("⏳judge" if passed is None else "✗")
         print(f"[{mark}] {qid} ({cat}) tokens={rows[-1]['tokens']} "
               f"ttft={rows[-1]['ttftMs']}ms total={rows[-1]['totalMs']}ms "
@@ -215,13 +245,15 @@ def main():
               + (f"  avgTTFT={int(sum(tt)/len(tt))}ms" if tt else "")
               + (f"  avgTotal={int(sum(ttot)/len(ttot))}ms" if ttot else ""))
     ok = sum(1 for r in rows if r["passed"])
-    print(f"\nTOTAL {ok}/{len(rows)}  label={args.label} endpoint={args.endpoint} prompt={prompt_version}")
+    print(f"\nTOTAL {ok}/{len(rows)}  label={args.label} endpoint={args.endpoint} "
+          f"prompt={prompt_version} rewrite={args.rewrite}")
 
     RESULTS.mkdir(exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
     out = RESULTS / f"{args.label}-{ts}.json"
     out.write_text(json.dumps({
         "label": args.label, "endpoint": args.endpoint, "promptVersion": prompt_version,
+        "rewrite": rewrite,
         "cache": cache_report, "finishedAt": ts, "rows": rows,
     }, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"[saved] {out}")
