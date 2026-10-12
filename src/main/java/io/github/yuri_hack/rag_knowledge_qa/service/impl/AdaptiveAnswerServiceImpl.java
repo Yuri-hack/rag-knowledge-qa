@@ -16,7 +16,6 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -38,32 +37,26 @@ public class AdaptiveAnswerServiceImpl extends BaseTongYiService implements Adap
 
     @Override
     public Flux<StreamChatResponse> handleAmbiguousQuery(String question) {
-        AtomicReference<StringBuilder> fullAnswer = new AtomicReference<>(new StringBuilder());
+        // Flux.defer：检索延迟到订阅时才执行——修复 eager 检索（组装期就跑，无人订阅也烧一次检索）
+        return Flux.defer(() -> {
+            // 构造prompt
+            List<KnowledgeSearchResult> results = knowledgeBaseService.searchKnowledge(SearchRequest.of(question));
+            String context = results.stream()
+                    .map(KnowledgeSearchResult::getContent)
+                    .collect(Collectors.joining("\n\n"));
+            String prompt = promptConfig.getAdaptiveAnswerPrompt().replace("{retrieved_docs}", context);
 
-        // 构造prompt
-        List<KnowledgeSearchResult> results = knowledgeBaseService.searchKnowledge(SearchRequest.of(question));
-        String context = results.stream()
-                .map(KnowledgeSearchResult::getContent)
-                .collect(Collectors.joining("\n\n"));
-        String prompt = promptConfig.getAdaptiveAnswerPrompt().replace("{retrieved_docs}", context);
+            // 构造message
+            List<Message> messages = buildMessages(prompt, question);
 
-        // 构造message
-        List<Message> messages = buildMessages(prompt, question);
-
-        // 生成答案
-        return generateStream(messages, tongYiBaseConfig.getAdaptiveModelConfig())
-                .map(streamResponse -> {
-                    if (streamResponse.getContent() != null) {
-                        fullAnswer.get().append(streamResponse.getContent());
-                    }
-                    return streamResponse;
-                })
-                .doOnComplete(() -> {
-                    // 缓存结果
-                    String answer = fullAnswer.get().toString();
-                    cacheService.cacheExactAnswer(question, answer);
-                    semanticAnswerCacheService.cacheSemanticAnswer(question, answer);
-                    log.info("完整RAG流程完成，缓存已更新");
-                });
+            // 生成答案（缓存回写与订阅者解耦）
+            return writeCacheDetached(
+                    generateStream(messages, tongYiBaseConfig.getAdaptiveModelConfig()),
+                    answer -> {
+                        cacheService.cacheExactAnswer(question, answer);
+                        semanticAnswerCacheService.cacheSemanticAnswer(question, answer);
+                        log.info("自适应回答完成，缓存已更新");
+                    });
+        });
     }
 }

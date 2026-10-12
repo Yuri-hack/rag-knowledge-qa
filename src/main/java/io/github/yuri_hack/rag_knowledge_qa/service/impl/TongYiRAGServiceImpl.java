@@ -69,20 +69,10 @@ public class TongYiRAGServiceImpl extends BaseTongYiService implements RAGServic
      * 使用缓存上下文重新生成答案
      */
     private Flux<StreamChatResponse> generateWithCachedContext(String question, List<String> contextChunks) {
-        AtomicReference<StringBuilder> fullAnswer = new AtomicReference<>(new StringBuilder());
-
-        return buildRAGMessages(question, contextChunks)
-                .flatMapMany(messages -> generateStream(messages, tongYiBaseConfig.getRagModelConfig()))
-                .map(streamResponse -> {
-                    // 累积完整答案用于缓存
-                    if (streamResponse.getContent() != null) {
-                        fullAnswer.get().append(streamResponse.getContent());
-                    }
-                    return streamResponse;
-                })
-                .doOnComplete(() -> {
-                    // 缓存新生成的答案
-                    String answer = fullAnswer.get().toString();
+        return writeCacheDetached(
+                buildRAGMessages(question, contextChunks)
+                        .flatMapMany(messages -> generateStream(messages, tongYiBaseConfig.getRagModelConfig())),
+                answer -> {
                     cacheService.cacheExactAnswer(question, answer);
                     semanticAnswerCacheService.cacheSemanticAnswer(question, answer);
                     log.info("语义缓存重新生成完成，答案已缓存");
@@ -93,37 +83,28 @@ public class TongYiRAGServiceImpl extends BaseTongYiService implements RAGServic
      * 执行完整RAG流程
      */
     private Flux<StreamChatResponse> executeFullRAG(String question) {
-        AtomicReference<StringBuilder> fullAnswer = new AtomicReference<>(new StringBuilder());
         AtomicReference<List<Long>> documentChunkIds = new AtomicReference<>();
 
-        return Mono.fromCallable(() -> {
-                    // 检索知识
-                    List<KnowledgeSearchResult> searchResults = knowledgeBaseService
-                            .searchKnowledge(SearchRequest.of(question, ragSearchTopK));
+        return writeCacheDetached(
+                Mono.fromCallable(() -> {
+                            // 检索知识
+                            List<KnowledgeSearchResult> searchResults = knowledgeBaseService
+                                    .searchKnowledge(SearchRequest.of(question, ragSearchTopK));
 
-                    List<String> contexts = searchResults.stream()
-                            .map(KnowledgeSearchResult::getContent)
-                            .toList();
+                            List<String> contexts = searchResults.stream()
+                                    .map(KnowledgeSearchResult::getContent)
+                                    .toList();
 
-                    List<Long> chunkIds = searchResults.stream()
-                            .map(KnowledgeSearchResult::getChunkId)
-                            .toList();
-                    documentChunkIds.set(chunkIds);
+                            List<Long> chunkIds = searchResults.stream()
+                                    .map(KnowledgeSearchResult::getChunkId)
+                                    .toList();
+                            documentChunkIds.set(chunkIds);
 
-                    return contexts;
-                })
-                .flatMapMany(contexts -> buildRAGMessages(question, contexts))
-                .flatMap(messages -> generateStream(messages, tongYiBaseConfig.getRagModelConfig()))
-                .map(streamResponse -> {
-                    // 累积完整答案
-                    if (streamResponse.getContent() != null) {
-                        fullAnswer.get().append(streamResponse.getContent());
-                    }
-                    return streamResponse;
-                })
-                .doOnComplete(() -> {
-                    // 缓存结果
-                    String answer = fullAnswer.get().toString();
+                            return contexts;
+                        })
+                        .flatMapMany(contexts -> buildRAGMessages(question, contexts))
+                        .flatMap(messages -> generateStream(messages, tongYiBaseConfig.getRagModelConfig())),
+                answer -> {
                     cacheService.cacheExactAnswer(question, answer);
                     semanticAnswerCacheService.cacheSemanticAnswer(question, answer);
                     semanticDocumentCacheService.cacheSemanticDocument(question, documentChunkIds.get());

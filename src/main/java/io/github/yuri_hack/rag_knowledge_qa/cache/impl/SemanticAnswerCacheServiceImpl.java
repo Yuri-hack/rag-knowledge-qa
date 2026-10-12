@@ -4,7 +4,7 @@ import io.github.yuri_hack.rag_knowledge_qa.cache.SemanticAnswerCacheService;
 import io.github.yuri_hack.rag_knowledge_qa.cache.model.SemanticAnswerCacheHit;
 import io.github.yuri_hack.rag_knowledge_qa.config.CacheConfig;
 import io.github.yuri_hack.rag_knowledge_qa.embed.EmbeddingService;
-import io.github.yuri_hack.rag_knowledge_qa.service.NormalizeService;
+import io.github.yuri_hack.rag_knowledge_qa.util.SimpleNormalizer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,7 +27,12 @@ import static io.github.yuri_hack.rag_knowledge_qa.util.VectorUtils.floatArray2B
 public class SemanticAnswerCacheServiceImpl implements SemanticAnswerCacheService {
 
     private final EmbeddingService embeddingService;
-    private final NormalizeService normalizeService;
+    /**
+     * 缓存 key 层只用确定性归一化，不用 LLM（NormalizeService）：无上下文的单轮改写
+     * 遇到多轮指代（"那病假呢？"）会产出任意的 key，多轮记忆会被缓存层击穿（D6 前 must-fix）；
+     * 且每次读写多一次隐藏 LLM 调用。读写两侧必须对称。
+     */
+    private final SimpleNormalizer simpleNormalizer;
     private final CacheConfig cacheConfig;
     private final JedisPooled jedisPooled;
 
@@ -43,7 +48,7 @@ public class SemanticAnswerCacheServiceImpl implements SemanticAnswerCacheServic
         }
 
         try {
-            String normalizedQuery = normalizeService.normalizeQuestion(originalQuery);
+            String normalizedQuery = simpleNormalizer.normalize(originalQuery);
             float[] queryVector = embeddingService.getEmbedding(normalizedQuery);
             if (queryVector == null) {
                 log.warn("无法生成查询向量，跳过语义答案缓存");
@@ -80,7 +85,7 @@ public class SemanticAnswerCacheServiceImpl implements SemanticAnswerCacheServic
         }
 
         try {
-            String normalizedQuery = normalizeService.normalizeQuestion(query);
+            String normalizedQuery = simpleNormalizer.normalize(query);
             float[] queryVector = embeddingService.getEmbedding(normalizedQuery);
             if (queryVector == null) {
                 return Optional.empty();

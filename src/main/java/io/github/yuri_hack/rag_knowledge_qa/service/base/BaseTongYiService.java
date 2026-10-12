@@ -6,8 +6,9 @@ import com.alibaba.dashscope.aigc.generation.GenerationResult;
 import com.alibaba.dashscope.aigc.generation.GenerationUsage;
 import com.alibaba.dashscope.common.Message;
 import com.alibaba.dashscope.common.Role;
+import com.alibaba.dashscope.protocol.ConnectionOptions;
+import com.alibaba.dashscope.protocol.Protocol;
 import com.alibaba.dashscope.tools.ToolBase;
-import com.alibaba.dashscope.tools.ToolFunction;
 import io.github.yuri_hack.rag_knowledge_qa.config.PromptConfig;
 import io.github.yuri_hack.rag_knowledge_qa.config.TongYiBaseConfig;
 import io.github.yuri_hack.rag_knowledge_qa.config.TongYiModelConfig;
@@ -20,8 +21,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import reactor.core.publisher.Flux;
 
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Consumer;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -29,7 +32,19 @@ public abstract class BaseTongYiService {
 
     protected final TongYiBaseConfig tongYiBaseConfig;
     protected final PromptConfig promptConfig;
-    protected final Generation generation = new Generation();
+
+    /**
+     * 超时挂在整个客户端上（ask 与流式共用）：ask 是 agent 循环的串行瓶颈，一次挂起=整轮挂起。
+     * readTimeout 对流式调用按"块间最大间隔"生效，不影响长回答；baseUrl 传 null 沿用 SDK 默认。
+     */
+    protected final Generation generation = new Generation(
+            Protocol.HTTP.getValue(),
+            null,
+            ConnectionOptions.builder()
+                    .connectTimeout(Duration.ofSeconds(10))
+                    .readTimeout(Duration.ofSeconds(60))
+                    .writeTimeout(Duration.ofSeconds(10))
+                    .build());
 
     /**
      * 通用的非流式生成方法
@@ -67,25 +82,31 @@ public abstract class BaseTongYiService {
             builder.tools(tools);
         }
         GenerationParam param = builder.build();
-        try {
-            GenerationResult result = generation.call(param);
-            GenerationUsage u = result.getUsage();
-            UsageInfo usageInfo = UsageInfo.builder()
-                    .inputTokens(u.getInputTokens())
-                    .outputTokens(u.getOutputTokens())
-                    .totalTokens(u.getTotalTokens())
-                    .build();
-            return new AskResult(result.getOutput().getChoices().get(0).getMessage(), usageInfo);
-        } catch (Exception e) {
-            log.error("agent ask 调用失败", e);
-            // 失败也是输入：返回一条失败消息，让循环决定重试还是终止（不抛异常炸链）
-            return new AskResult(
-                    Message.builder()
-                            .role(Role.ASSISTANT.getValue())
-                            .content("[模型调用失败] " + e.getMessage())
-                            .build(),
-                    UsageInfo.builder().build());
+        // D2 要求：单次 LLM 调用失败重试一次再放弃——评测数字里不混入单次网络抖动的噪声
+        Exception lastError = null;
+        for (int attempt = 1; attempt <= 2; attempt++) {
+            try {
+                GenerationResult result = generation.call(param);
+                GenerationUsage u = result.getUsage();
+                UsageInfo usageInfo = UsageInfo.builder()
+                        .inputTokens(u.getInputTokens())
+                        .outputTokens(u.getOutputTokens())
+                        .totalTokens(u.getTotalTokens())
+                        .build();
+                return new AskResult(result.getOutput().getChoices().get(0).getMessage(), usageInfo);
+            } catch (Exception e) {
+                lastError = e;
+                log.warn("agent ask 第 {} 次调用失败: {}", attempt, e.getMessage());
+            }
         }
+        log.error("agent ask 调用失败（已重试 1 次）", lastError);
+        // 失败也是输入：返回一条失败消息，让循环决定重试还是终止（不抛异常炸链）
+        return new AskResult(
+                Message.builder()
+                        .role(Role.ASSISTANT.getValue())
+                        .content("[模型调用失败] " + lastError.getMessage())
+                        .build(),
+                UsageInfo.builder().build());
     }
 
     /**
@@ -107,6 +128,29 @@ public abstract class BaseTongYiService {
             log.error("构建流式请求失败", e);
             return Flux.just(createErrorResponse("构建请求失败: " + e.getMessage()));
         }
+    }
+
+    /**
+     * 缓存回写与 SSE 订阅者解耦（修复原 doOnComplete 方案"客户端中途断连就丢缓存"）：
+     * cache() 使上游订阅独立于下游——客户端 cancel 后源照常跑完，由侧车道订阅者
+     * 在生成完成时回写；cacheAction 收到完整累积答案（行为与原 doOnComplete 一致）。
+     */
+    protected Flux<StreamChatResponse> writeCacheDetached(Flux<StreamChatResponse> source,
+                                                          Consumer<String> cacheAction) {
+        return Flux.defer(() -> {
+            StringBuilder fullAnswer = new StringBuilder();
+            Flux<StreamChatResponse> shared = source
+                    .doOnNext(r -> {
+                        if (r.getContent() != null) {
+                            fullAnswer.append(r.getContent());
+                        }
+                    })
+                    .cache();
+            shared.subscribe(r -> { },
+                    e -> log.warn("缓存车道生成失败，跳过缓存回写", e),
+                    () -> cacheAction.accept(fullAnswer.toString()));
+            return shared;
+        });
     }
 
     /**

@@ -6,7 +6,7 @@ import io.github.yuri_hack.rag_knowledge_qa.config.CacheConfig;
 import io.github.yuri_hack.rag_knowledge_qa.embed.EmbeddingService;
 import io.github.yuri_hack.rag_knowledge_qa.entity.DocumentChunk;
 import io.github.yuri_hack.rag_knowledge_qa.repository.DocumentChunkRepository;
-import io.github.yuri_hack.rag_knowledge_qa.service.NormalizeService;
+import io.github.yuri_hack.rag_knowledge_qa.util.SimpleNormalizer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -32,7 +32,8 @@ import static io.github.yuri_hack.rag_knowledge_qa.util.VectorUtils.floatArray2B
 public class SemanticDocumentCacheServiceImpl implements SemanticDocumentCacheService {
 
     private final EmbeddingService embeddingService;
-    private final NormalizeService normalizeService;
+    /** 缓存 key 层只用确定性归一化（同 SemanticAnswerCacheServiceImpl，读写必须对称） */
+    private final SimpleNormalizer simpleNormalizer;
     private final CacheConfig cacheConfig;
     private final JedisPooled jedisPooled;
     private final DocumentChunkRepository documentChunkRepository;
@@ -49,7 +50,7 @@ public class SemanticDocumentCacheServiceImpl implements SemanticDocumentCacheSe
         }
 
         try {
-            String normalizedQuery = normalizeService.normalizeQuestion(originalQuery);
+            String normalizedQuery = simpleNormalizer.normalize(originalQuery);
             float[] queryVector = embeddingService.getEmbedding(normalizedQuery);
             if (queryVector == null) {
                 log.warn("无法生成查询向量，跳过语义缓存");
@@ -90,7 +91,7 @@ public class SemanticDocumentCacheServiceImpl implements SemanticDocumentCacheSe
         }
 
         try {
-            String normalizedQuery = normalizeService.normalizeQuestion(query);
+            String normalizedQuery = simpleNormalizer.normalize(query);
             float[] queryVector = embeddingService.getEmbedding(normalizedQuery);
             if (queryVector == null) {
                 return Optional.empty();
