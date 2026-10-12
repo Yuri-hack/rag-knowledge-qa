@@ -56,6 +56,9 @@ JUDGE_SYSTEM_PROMPT = """你是企业知识库问答系统的质量裁判。根�
 {"verdict": "CORRECT|PARTIAL|WRONG", "reason": "不超过50字的理由"}"""
 
 
+LLM_FAILURE_MARKER = "[模型调用失败]"
+
+
 def call_judge(model: str, question: str, facts: list, answer: str, timeout: int = 120):
     """调一次 judge，返回 (verdict, reason, error)"""
     body = {
@@ -118,21 +121,29 @@ def main():
     print(f"judge={args.model} temp=0 prompt=judge-v2(冻结)  待评 {len(rows)} 题  源: {src.name}\n")
     judged = []
     for r in rows:
-        verdict, reason, err = call_judge(args.model, r["question"],
-                                          r.get("factsExpected") or [], r.get("answer") or "")
-        judged.append({"id": r["id"], "question": r["question"], "answer": (r.get("answer") or "")[:2000],
+        answer = r.get("answer") or ""
+        # 基础设施故障的"回答"是错误文本，judge 按要点对照必然判 WRONG——
+        # 会把网络故障变成"能力差"。标 INFRA 不计分，也不消耗 judge 调用。
+        if r.get("infraError") or answer.startswith(LLM_FAILURE_MARKER):
+            verdict, reason, err = "INFRA", "模型调用/请求故障，不计入能力口径", None
+        else:
+            verdict, reason, err = call_judge(args.model, r["question"],
+                                              r.get("factsExpected") or [], answer)
+        judged.append({"id": r["id"], "question": r["question"], "answer": answer[:2000],
                        "keywordPassed": r.get("passed"), "judgeRequired": bool(r.get("judgeRequired")),
                        "verdict": verdict, "reason": reason, "error": err})
         mark = verdict or "ERR"
         print(f"[{mark}] {r['id']}  {reason or err}")
 
     ok = sum(1 for j in judged if j["verdict"] == "CORRECT")
+    infra = sum(1 for j in judged if j["verdict"] == "INFRA")
     kw_ok = sum(1 for j in judged if j["keywordPassed"])
     all_rows = data["rows"]
-    kw_total = [r for r in all_rows if not r.get("judgeRequired")]
+    kw_total = [r for r in all_rows if not r.get("judgeRequired") and not r.get("infraError")]
     kw_pass = sum(1 for r in kw_total if r["passed"])
-    print(f"\n本题集: judge CORRECT {ok}/{len(judged)}"
-          f"  |  全集合并口径: 关键词 {kw_pass}/{len(kw_total)} + judge {ok}/{len(judged)}")
+    cap_n = len(judged) - infra
+    print(f"\n本题集: judge CORRECT {ok}/{cap_n}  infra={infra}"
+          f"  |  全集合并口径: 关键词 {kw_pass}/{len(kw_total)} + judge {ok}/{cap_n}")
 
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
     out = RESULTS / f"{src.stem}-judged-{ts}.json"

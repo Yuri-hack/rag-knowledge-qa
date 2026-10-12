@@ -65,8 +65,9 @@ def set_cache_enabled(enabled: bool) -> dict:
 
 def stream_answer(question: str, endpoint: str = "baseline", mode: str = "agent",
                   timeout: int = 120, session: str = None, rewrite: bool = True):
-    """调问答端点，返回 (answer, usage, ttft_ms, total_ms, error, prompt_version)。
-    session 非空时带 sessionId（D6 多轮）+ rewrite 开关。"""
+    """调问答端点，返回 (answer, usage, ttft_ms, total_ms, error, prompt_version, termination)。
+    session 非空时带 sessionId（D6 多轮）+ rewrite 开关。
+    termination 来自 agent 端点 finished 事件的 termination 字段（LLM_FAILURE=基础设施故障）。"""
     if endpoint in ("agent", "singleshot"):
         qs = {"question": question, "mode": mode, "maxSteps": 6, "debug": "true"}
         url = BASE + "/api/chat/agent?" + urllib.parse.urlencode(qs)
@@ -77,7 +78,7 @@ def stream_answer(question: str, endpoint: str = "baseline", mode: str = "agent"
             qs["rewrite"] = "true" if rewrite else "false"
         url = BASE + "/api/chat/rag/stream?" + urllib.parse.urlencode(qs)
     t0 = time.time()
-    answer, usage, error, prompt_version = [], None, None, None
+    answer, usage, error, prompt_version, termination = [], None, None, None, None
     ttft = None
     req = urllib.request.Request(url, headers={"Accept": "text/event-stream"})
     try:
@@ -100,11 +101,41 @@ def stream_answer(question: str, endpoint: str = "baseline", mode: str = "agent"
                 if obj.get("finished"):
                     usage = obj.get("usage")
                     prompt_version = obj.get("promptVersion")  # BC02 教训：结果必须能对回 prompt 版本
+                    termination = obj.get("termination")
                     break
     except Exception as e:  # noqa: BLE001
         error = f"request failed: {e}"
     total = (time.time() - t0) * 1000
-    return "".join(answer), usage, ttft, total, error, prompt_version
+    return "".join(answer), usage, ttft, total, error, prompt_version, termination
+
+
+LLM_FAILURE_MARKER = "[模型调用失败]"
+
+
+def is_infra_failure(answer: str, error, termination) -> bool:
+    """区分"能力失败"与"基础设施失败"：
+    模型调用故障（网络/限流/服务端 5xx）与问答能力无关，计入 pass 率会把
+    "agent 单题多次串行 LLM 调用、故障暴露面 ≈ N 倍于单发基线"变成"agent 更笨"
+    ——arm-C 的 single_hop 9/10 vs 基线 10/10，事后核查 E01 全部是一次 IOException。"""
+    if termination == "LLM_FAILURE":
+        return True
+    if error and "request failed" in str(error):
+        return True
+    return bool(answer and answer.startswith(LLM_FAILURE_MARKER))
+
+
+def ask_with_retry(question: str, retries: int = 2, **kw):
+    """基础设施失败自动重试（能力失败不重试）。返回 (answer, usage, ttft, total, error,
+    prompt_version, termination, infra_retries)——重试次数进结果，可审计。"""
+    infra_retries = 0
+    while True:
+        r = stream_answer(question, **kw)
+        answer, error, termination = r[0], r[4], r[6]
+        if not is_infra_failure(answer, error, termination) or infra_retries >= retries:
+            return (*r, infra_retries)
+        infra_retries += 1
+        print(f"    [infra] 第 {infra_retries} 次为基础设施故障（{str(error or termination)[:80]}），重试")
+        time.sleep(2)
 
 
 def search_files(query: str, top_k: int = 10):
@@ -180,10 +211,12 @@ def main():
         if len(turns) > 1:
             session_id = f"eval-{args.label}-{run_ts}-{qid}"  # 每次运行独立，避免会话串场
         turn_answers, turn_tokens = [], []
-        usage, ttft, error, prompt_version = None, None, None, None
+        usage, ttft, error, prompt_version, termination = None, None, None, None, None
+        infra_retries = 0
         for i, t in enumerate(turns):
-            answer, usage, ttft, total, error, prompt_version = stream_answer(
+            answer, usage, ttft, total, error, prompt_version, termination, ir = ask_with_retry(
                 t, endpoint=args.endpoint, mode=args.mode, session=session_id, rewrite=rewrite)
+            infra_retries += ir
             turn_answers.append(answer)
             turn_tokens.append((usage or {}).get("totalTokens") or 0)
             if session_id and i < len(turns) - 1:
@@ -191,9 +224,15 @@ def main():
         answer = turn_answers[-1]
         ans_n = norm(answer)
 
+        # 基础设施故障（重试后仍失败）：不计入能力 pass 率，单独成列。
+        # 混在一起的教训：arm-C 的 E01 = 一次 IOException 被记成"agent 答错简单题"。
+        infra = is_infra_failure(answer, error, termination)
+
         if q.get("shouldRetrieve", True):
             fact_hits = [f for f in facts if f in ans_n]
-            if q.get("judgeRequired"):
+            if infra:
+                passed = None
+            elif q.get("judgeRequired"):
                 passed = None  # 关键词层已证明会假阳性，交终评 judge
             else:
                 passed = bool(facts) and len(fact_hits) == len(facts)
@@ -203,12 +242,16 @@ def main():
                 norm(q["expectDocKeyword"]) in n for n in names_n)
         else:
             fact_hits, passed = [], score_no_retrieval(ans_n, q)
+            if infra:
+                passed = None
             doc_hit = None
             names, err2 = [], None
 
         row = {
             "id": qid, "category": cat, "question": q.get("question") or turns[-1],
             "passed": passed, "judgeRequired": bool(q.get("judgeRequired")),
+            "infraError": infra, "infraRetries": infra_retries,
+            "termination": termination,
             "factHits": fact_hits, "factsExpected": facts,
             "shouldRetrieve": q.get("shouldRetrieve", True),
             "retrievalHit": doc_hit, "retrievedFiles": names[:10],
@@ -222,31 +265,36 @@ def main():
             row["turnAnswers"] = [a[:800] for a in turn_answers]
             row["sessionId"] = session_id
         rows.append(row)
-        mark = "✓" if passed else ("⏳judge" if passed is None else "✗")
+        mark = "⚠infra" if infra else ("✓" if passed else ("⏳judge" if passed is None else "✗"))
         print(f"[{mark}] {qid} ({cat}) tokens={rows[-1]['tokens']} "
               f"ttft={rows[-1]['ttftMs']}ms total={rows[-1]['totalMs']}ms "
               f"facts={len(fact_hits)}/{len(facts)}")
         if error or err2:
             print(f"    !! {error or err2}")
 
-    # 汇总
-    print("\n===== 汇总（按 category）=====")
+    # 汇总（infra 故障题不计入能力分母，单独汇报）
+    print("\n===== 汇总（按 category，infra 不计入分母）=====")
     cats = {}
     for r in rows:
         cats.setdefault(r["category"], []).append(r)
     for cat, rs in cats.items():
-        p = sum(1 for r in rs if r["passed"])
-        ret = [r for r in rs if r["shouldRetrieve"]]
+        cap = [r for r in rs if not r.get("infraError")]
+        p = sum(1 for r in cap if r["passed"])
+        ret = [r for r in cap if r["shouldRetrieve"]]
         tok = [r["tokens"] for r in ret if r["tokens"]]
         tt = [r["ttftMs"] for r in rs if r["ttftMs"]]
         ttot = [r["totalMs"] for r in rs if r["totalMs"]]
-        print(f"{cat:24s} {p}/{len(rs)} 通"
+        infra_n = len(rs) - len(cap)
+        print(f"{cat:24s} {p}/{len(cap)} 通"
+              + (f"  infra={infra_n}" if infra_n else "")
               + (f"  avgTokens={sum(tok)//len(tok)}" if tok else "")
               + (f"  avgTTFT={int(sum(tt)/len(tt))}ms" if tt else "")
               + (f"  avgTotal={int(sum(ttot)/len(ttot))}ms" if ttot else ""))
-    ok = sum(1 for r in rows if r["passed"])
-    print(f"\nTOTAL {ok}/{len(rows)}  label={args.label} endpoint={args.endpoint} "
-          f"prompt={prompt_version} rewrite={args.rewrite}")
+    cap_rows = [r for r in rows if not r.get("infraError")]
+    ok = sum(1 for r in cap_rows if r["passed"])
+    infra_total = len(rows) - len(cap_rows)
+    print(f"\nTOTAL {ok}/{len(cap_rows)}  infra={infra_total}  label={args.label} "
+          f"endpoint={args.endpoint} prompt={prompt_version} rewrite={args.rewrite}")
 
     RESULTS.mkdir(exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
