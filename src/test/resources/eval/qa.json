@@ -1,205 +1,506 @@
 {
-  "meta": {
-    "created": "2026-10-08",
-    "model_profile": "qwen-plus 全模型（rag/common/adaptive/intent/normalize/rewrite，见 application.yml；旧记录写 qwen-turbo 与 yml 不符，2026-10-12 按 yml 订正）—— 评测全程冻结，换模型=口径重置。D6 起多轮题的检索 query 经 rewrite 模型（qwen-plus, temp=0）改写，属评测路径的一部分",
-    "corpus": "46 篇冻结语料（10 正典 + 6 干扰 + 30 变体），见 corpus-index.md；2026-10-12 语料升 v1.1（正典加 scope anchors + precedence 条款，S01 判分口径见该题 notes）",
-    "retrievalHitDefinition": "topK=10 检索（topRatio=0.5 动态截断后有效 5 条，2026-10-12 订正）的 fileName 中出现 expectDocKeyword 子串；MT 多轮题用末轮裸 query 检查（服务端实际用改写后 query，故 MT 题 retrievalHit 可能 false 但答对）",
-    "scoring": "两层制：迭代层=关键词命中（答案去空白后子串匹配 expectedFacts，全部命中才 pass）；终评层=LLM-as-judge + 人工抽检 10 条",
-    "ttftDefinition": "从发起 HTTP 请求到首个 SSE 数据块到达（含意图识别/归一化/缓存检查全程）",
-    "cache": "每次全量评测前 flush rag:* 缓存（精确+语义答案+语义文档），否则串轮污染",
-    "multiTurn": "D6 已并入（2026-10-12）：MT01-MT07 共 7 条，turns 数组=逐轮对话（末轮计分），sessionId 由 eval runner 按运行+题目隔离生成；--rewrite false 为可证伪对照模式",
-    "denominatorRule": "关键词层分母 = 总题数 - judgeRequired题(S01)；2026-10-12 晚追加 R01-R03（compound_reasoning）后：总题数 36，关键词层分母 **35**，facts 覆盖分母 50。passed=null 不计入；S01 只由 LLM-as-judge 终评、单独报告。引用分部口径时必须标注题集范围（如四臂对比=当时的 26 题/分母25），禁止跨版本混写。教训：四臂表曾并存 24/26、24/25、25/26 三种写法（2026-10-12 订正）"
+ "meta": {
+  "created": "2026-10-08",
+  "model_profile": "qwen-plus 全模型（rag/common/adaptive/intent/normalize/rewrite，见 application.yml；旧记录写 qwen-turbo 与 yml 不符，2026-10-12 按 yml 订正）—— 评测全程冻结，换模型=口径重置。D6 起多轮题的检索 query 经 rewrite 模型（qwen-plus, temp=0）改写，属评测路径的一部分",
+  "corpus": "46 篇冻结语料（10 正典 + 6 干扰 + 30 变体），见 corpus-index.md；2026-10-12 语料升 v1.1（正典加 scope anchors + precedence 条款，S01 判分口径见该题 notes）",
+  "retrievalHitDefinition": "topK=10 检索（topRatio=0.5 动态截断后有效 5 条，2026-10-12 订正）的 fileName 中出现 expectDocKeyword 子串；MT 多轮题用末轮裸 query 检查（服务端实际用改写后 query，故 MT 题 retrievalHit 可能 false 但答对）",
+  "scoring": "两层制：迭代层=关键词命中（答案去空白后子串匹配 expectedFacts，全部命中才 pass）；终评层=LLM-as-judge + 人工抽检 10 条",
+  "ttftDefinition": "从发起 HTTP 请求到首个 SSE 数据块到达（含意图识别/归一化/缓存检查全程）",
+  "cache": "每次全量评测前 flush rag:* 缓存（精确+语义答案+语义文档），否则串轮污染",
+  "multiTurn": "D6 已并入（2026-10-12）：MT01-MT07 共 7 条，turns 数组=逐轮对话（末轮计分），sessionId 由 eval runner 按运行+题目隔离生成；--rewrite false 为可证伪对照模式",
+  "denominatorRule": "关键词层分母 = 总题数 - judgeRequired题(S01)；2026-10-12 晚追加 R01-R03（compound_reasoning）后：总题数 36，关键词层分母 **35**，facts 覆盖分母 50。passed=null 不计入；S01 只由 LLM-as-judge 终评、单独报告。引用分部口径时必须标注题集范围（如四臂对比=当时的 26 题/分母25），禁止跨版本混写。教训：四臂表曾并存 24/26、24/25、25/26 三种写法（2026-10-12 订正）",
+  "agentZoneNote": "AZ 系列（2026-10-12）：基于检索探针设计的 agent 候选优势区——宽聚合(证据宽度>5 chunk 上下文)/片段缺失→文档补全/冲突显式化/未覆盖交叉的诚实处理。 AZ03-05 为 judgeRequired。"
+ },
+ "questions": [
+  {
+   "id": "E01",
+   "category": "single_hop",
+   "question": "P4的年假基准是几天？",
+   "expectedFacts": [
+    "5天"
+   ],
+   "expectDocKeyword": "职级与假期对照表",
+   "shouldRetrieve": true,
+   "notes": "正典：对照表 P4=5 天"
   },
-  "questions": [
-    {
-      "id": "E01", "category": "single_hop", "question": "P4的年假基准是几天？",
-      "expectedFacts": ["5天"], "expectDocKeyword": "职级与假期对照表", "shouldRetrieve": true,
-      "notes": "正典：对照表 P4=5 天"
-    },
-    {
-      "id": "E02", "category": "single_hop", "question": "年假可以跨年结转吗？",
-      "expectedFacts": ["不跨年"], "expectDocKeyword": "年假管理制度", "shouldRetrieve": true,
-      "notes": "正典：原则上当年休完，不跨年结转"
-    },
-    {
-      "id": "E03", "category": "single_hop", "question": "加班满3小时的餐补是多少钱？",
-      "expectedFacts": ["30元"], "expectDocKeyword": "加班与调休", "shouldRetrieve": true,
-      "notes": "正典 07：满 3 小时 30 元餐补"
-    },
-    {
-      "id": "E04", "category": "single_hop", "question": "远程办公每周最多几天？",
-      "expectedFacts": ["2天"], "expectDocKeyword": "远程办公", "shouldRetrieve": true,
-      "notes": "正典 08：每周最多 2 天"
-    },
-    {
-      "id": "E05", "category": "single_hop", "question": "员工密码多久需要更换一次？",
-      "expectedFacts": ["90天"], "expectDocKeyword": "信息安全", "shouldRetrieve": true,
-      "notes": "正典 09：90 天更换"
-    },
-    {
-      "id": "E06", "category": "single_hop", "question": "男员工陪产假有几天？",
-      "expectedFacts": ["15天"], "expectDocKeyword": "专项假期", "shouldRetrieve": true,
-      "notes": "正典 10：陪产假 15 天（干扰 B06 旧版=7 天）"
-    },
-    {
-      "id": "E07", "category": "single_hop", "question": "紧急费用说明单需要在几个工作日内补录？",
-      "expectedFacts": ["3个工作日"], "expectDocKeyword": "绿色通道", "shouldRetrieve": true,
-      "notes": "正典 04：3 个工作日内补录"
-    },
-    {
-      "id": "E08", "category": "single_hop", "question": "同一团队同一天远程办公的人数上限是多少？",
-      "expectedFacts": ["40%"], "expectDocKeyword": "远程办公", "shouldRetrieve": true,
-      "notes": "正典 08：不超过团队 40%"
-    },
-    {
-      "id": "E09", "category": "single_hop", "question": "试用期员工辞职需要提前几天？",
-      "expectedFacts": ["3天"], "expectDocKeyword": "试用期管理办法", "shouldRetrieve": true,
-      "notes": "正典 06：提前 3 天（干扰 B05 旧版=5 天）"
-    },
-    {
-      "id": "V01", "category": "version_discrimination", "question": "现在迟到扣款标准是多少？",
-      "expectedFacts": ["50元"], "expectDocKeyword": "考勤管理制度", "shouldRetrieve": true,
-      "notes": "正典 05=50 元/前2次免；干扰 B01 旧版=30 元（朴素措辞「迟到扣款标准」）。已实测：模型用版本标记排除旧版"
-    },
-    {
-      "id": "V02", "category": "version_discrimination", "question": "现行试用期病假上限是几个工作日？",
-      "expectedFacts": ["5个工作日"], "expectDocKeyword": "试用期管理办法", "shouldRetrieve": true,
-      "notes": "正典 06=5 个工作日；干扰 B05 旧版=3 个工作日"
-    },
-    {
-      "id": "V03", "category": "version_discrimination", "question": "一线城市出差住宿标准每晚多少钱？",
-      "expectedFacts": ["600元"], "expectDocKeyword": "差旅费报销制度", "shouldRetrieve": true,
-      "notes": "正典 03=600 元；干扰 B03 旧版=500 元"
-    },
-    {
-      "id": "S01", "category": "scope_directed", "question": "上海子公司的P5员工年假是几天？",
-      "expectedFacts": ["10天"], "expectDocKeyword": "上海子公司年假", "shouldRetrieve": true, "judgeRequired": true,
-      "notes": "【基线已实测沉默失败：答8天（总部）无提示，多次复现一致】关键词层对本题失效：'10天'会与正典'8+2=合计10天'的算术结果撞车造成假阳性（2026-10-08 实测），故 judgeRequired=true，迭代层不计 pass/fail。终评 judge 标准：答10天=对；答8天且明确指出两制度冲突/适用范围歧义=可接受；答8天无提示=错"
-    },
-    {
-      "id": "S02", "category": "scope_directed", "question": "驻场人员的住宿标准是多少？",
-      "expectedFacts": ["300元"], "expectDocKeyword": "驻场人员差旅", "shouldRetrieve": true,
-      "notes": "C13=300 元（正典差旅 600 是总部标准）。【基线已实测答对】回归保护题"
-    },
-    {
-      "id": "S03", "category": "scope_directed", "question": "实习生病假工资是怎么发的？",
-      "expectedFacts": ["50元"], "expectDocKeyword": "实习病假工资", "shouldRetrieve": true,
-      "notes": "C10=按日补助 50 元。【基线已实测答对】回归保护题"
-    },
-    {
-      "id": "S04", "category": "scope_directed", "question": "实习生能享受带薪年假吗？",
-      "expectedFacts": ["不享受"], "expectDocKeyword": "实习假期", "shouldRetrieve": true,
-      "notes": "C07：不享受带薪年假。正典年假制度「适用于签订正式劳动合同的全体员工」本身也排除了实习生——双向一致"
-    },
-    {
-      "id": "D01", "category": "decomposition", "question": "总部和上海子公司的P5年假标准有什么不同？",
-      "expectedFacts": ["8天", "10天"], "expectDocKeyword": "上海子公司年假", "shouldRetrieve": true,
-      "notes": "需要同时召回两份文档：正典对照表 P5=8 + C01 子公司 P5=10。agent 分解检索的潜在优势题。基线实测：通过（两文档都进 context）"
-    },
-    {
-      "id": "MA01", "category": "multi_aspect", "question": "对比上海子公司和总部在年假、病假、加班调休三方面的规定差异？",
-      "expectedFacts": ["10天", "8天", "10个工作日", "1:2", "1:1.5"], "expectDocKeyword": "上海子公司年假", "shouldRetrieve": true,
-      "notes": "证据横跨 5+ 份文档（C01/C03/C04/01/02/07），单次检索 top5 装不下全部关键数字——基线预期部分覆盖（factHits<total），agent 分解检索的目标题"
-    },
-    {
-      "id": "MA02", "category": "multi_aspect", "question": "上海子公司和总部的迟到扣款和补卡规定有什么不同？",
-      "expectedFacts": ["20元", "50元", "5次", "3次"], "expectDocKeyword": "上海子公司考勤", "shouldRetrieve": true,
-      "notes": "跨 C02 与正典 05 的数字对比题，4 个关键数字"
-    },
-    {
-      "id": "MA03", "category": "multi_aspect", "question": "总部和驻场人员的差旅住宿标准有什么不同？",
-      "expectedFacts": ["600元", "300元"], "expectDocKeyword": "驻场人员差旅", "shouldRetrieve": true,
-      "notes": "跨 03 与 C13 的标准对比题"
-    },
-    {
-      "id": "AG01", "category": "aggregation", "question": "公司一共有哪些类型的假期？",
-      "expectedFacts": ["年假", "病假", "婚假", "产假", "陪产假", "丧假"], "expectDocKeyword": "专项假期", "shouldRetrieve": true,
-      "notes": "答案散在 01/05/06/10/C07 多篇文档的列举聚合题——单次检索难以覆盖全部假期类型"
-    },
-    {
-      "id": "AG02", "category": "aggregation", "question": "公司报销和审批的时限分别有哪些？各是多少个工作日？",
-      "expectedFacts": ["15个工作日", "3个工作日", "5个工作日"], "expectDocKeyword": "绿色通道", "shouldRetrieve": true,
-      "notes": "时限散在 03（15）/04（3补录、5双审批）/14（5复核）多篇——聚合题"
-    },
-    {
-      "id": "W01", "category": "needs_web", "question": "今年国庆节放假调休怎么安排？",
-      "expectedFacts": [], "expectDocKeyword": null, "shouldRetrieve": false, "needsWeb": true,
-      "notes": "知识库无法回答（国家节假日安排）。正确行为=说明知识库没有/建议查官方渠道，或（D4 后）联网检索"
-    },
-    {
-      "id": "N01", "category": "no_retrieval", "question": "公司去年的营业收入是多少？",
-      "expectedFacts": [], "expectDocKeyword": null, "shouldRetrieve": false,
-      "notes": "内部财务数据不在知识库。正确行为=明确拒答，不得编造数字"
-    },
-    {
-      "id": "N02", "category": "no_retrieval", "question": "帮我推荐一家附近好吃的日料店？",
-      "expectedFacts": [], "expectDocKeyword": null, "shouldRetrieve": false,
-      "notes": "闲聊/生活服务，正确行为=不检索知识库，礼貌说明或闲聊兜底"
-    },
-    {
-      "id": "E10", "category": "single_hop", "question": "周末加班的调休比例是多少？",
-      "expectedFacts": ["1:1.5"], "expectDocKeyword": "加班与调休", "shouldRetrieve": true,
-      "notes": "正典 07：周末 1:1.5（干扰 B04 旧版=一律 1:1，C04 子公司=1:2）"
-    },
-    {
-      "id": "MT01", "category": "multi_turn",
-      "turns": ["上海子公司P4年假是几天？", "那P5呢？"],
-      "expectedFacts": ["10天"], "expectDocKeyword": "上海子公司年假", "shouldRetrieve": true,
-      "notes": "D6 指代=职级。裸query'那P5呢'会命中总部对照表P5=8天（错误主体），改写后应命中C01子公司P5=10天——可证伪锚点题"
-    },
-    {
-      "id": "MT02", "category": "multi_turn",
-      "turns": ["上海子公司周末加班调休比例是多少？", "那法定节假日呢？"],
-      "expectedFacts": ["1:4"], "expectDocKeyword": "上海子公司加班调休", "shouldRetrieve": true,
-      "notes": "D6 指代=加班类型。裸query易命中总部07的1:3（错误主体），C04子公司=1:4——可证伪锚点题"
-    },
-    {
-      "id": "MT03", "category": "multi_turn",
-      "turns": ["总部P4年假几天？", "那上海子公司呢？"],
-      "expectedFacts": ["7天"], "expectDocKeyword": "上海子公司年假", "shouldRetrieve": true,
-      "notes": "D6 主语切换：总部(P4=5)→子公司(P4=7)。裸query缺假期类型词，检索易失焦"
-    },
-    {
-      "id": "MT04", "category": "multi_turn",
-      "turns": ["上海子公司P4年假是几天？", "那病假呢？"],
-      "expectedFacts": ["10个工作日"], "expectDocKeyword": "上海子公司病假", "shouldRetrieve": true,
-      "notes": "D6 路线旗舰例'那病假呢？'。C03子公司带薪病假≤10个工作日；裸query无主体限定，易答成通用/总部口径"
-    },
-    {
-      "id": "MT05", "category": "multi_turn",
-      "turns": ["总部调休假自生成起多久有效？", "那上海子公司呢？"],
-      "expectedFacts": ["6个月"], "expectDocKeyword": "上海子公司加班调休", "shouldRetrieve": true,
-      "notes": "D6 主语切换：总部3个月(C07)→子公司6个月(C04)。裸query易答回总部口径"
-    },
-    {
-      "id": "MT06", "category": "multi_turn",
-      "turns": ["总部加班满3小时有什么补贴？", "那加班到22点以后呢？"],
-      "expectedFacts": ["实报实销"], "expectDocKeyword": "加班与调休", "shouldRetrieve": true,
-      "notes": "D6 指代=补偿类型。07正典：22:00后打车凭票实报实销（干扰14同主题数字冲突）"
-    },
-    {
-      "id": "MT07", "category": "multi_turn",
-      "turns": ["总部P4年假几天？", "那上海子公司呢？", "总部比上海子公司少几天？"],
-      "expectedFacts": ["2天"], "expectDocKeyword": null, "shouldRetrieve": true,
-      "notes": "D6 三轮跨轮聚合：需同时持有T1总部5天与T2子公司7天才能算出少2天"
-    },
-    {
-      "id": "R01", "category": "compound_reasoning",
-      "question": "一名P5员工司龄4年，今年已休6天年假，其中1天是法定节假日，今年还能再休几天年假？",
-      "expectedFacts": ["4天"], "expectDocKeyword": null, "shouldRetrieve": true,
-      "notes": "3步复合（corpus-index D5 遗留）：对照表P5=8+司龄满3年加1=9天 → 年假制度四.4法定节假日不计入→实休5天 → 9-5=4天。检索+规则+算术三段"
-    },
-    {
-      "id": "R02", "category": "compound_reasoning",
-      "question": "法定节假日加班了一天（8小时），选调休的话能换多少调休？这些调休最晚什么时候要用完？",
-      "expectedFacts": ["24小时", "3个月"], "expectDocKeyword": "加班与调休", "shouldRetrieve": true,
-      "notes": "同文档双跳+算术：加班制度 1:3 → 8小时×3=24小时；调休自生成起3个月内有效"
-    },
-    {
-      "id": "R03", "category": "compound_reasoning",
-      "question": "出差时航班取消了，改签费和临时住宿费公司给报吗？自己垫付的钱上限是多少，超过了怎么办？",
-      "expectedFacts": ["5000"], "expectDocKeyword": null, "shouldRetrieve": true,
-      "notes": "跨文档钩子（组B）：差旅制度第五条只给指针→必须跳《紧急费用审批绿色通道管理办法》：上限5000、超限须事前电话部门总监同意"
-    }
-  ]
+  {
+   "id": "E02",
+   "category": "single_hop",
+   "question": "年假可以跨年结转吗？",
+   "expectedFacts": [
+    "不跨年"
+   ],
+   "expectDocKeyword": "年假管理制度",
+   "shouldRetrieve": true,
+   "notes": "正典：原则上当年休完，不跨年结转"
+  },
+  {
+   "id": "E03",
+   "category": "single_hop",
+   "question": "加班满3小时的餐补是多少钱？",
+   "expectedFacts": [
+    "30元"
+   ],
+   "expectDocKeyword": "加班与调休",
+   "shouldRetrieve": true,
+   "notes": "正典 07：满 3 小时 30 元餐补"
+  },
+  {
+   "id": "E04",
+   "category": "single_hop",
+   "question": "远程办公每周最多几天？",
+   "expectedFacts": [
+    "2天"
+   ],
+   "expectDocKeyword": "远程办公",
+   "shouldRetrieve": true,
+   "notes": "正典 08：每周最多 2 天"
+  },
+  {
+   "id": "E05",
+   "category": "single_hop",
+   "question": "员工密码多久需要更换一次？",
+   "expectedFacts": [
+    "90天"
+   ],
+   "expectDocKeyword": "信息安全",
+   "shouldRetrieve": true,
+   "notes": "正典 09：90 天更换"
+  },
+  {
+   "id": "E06",
+   "category": "single_hop",
+   "question": "男员工陪产假有几天？",
+   "expectedFacts": [
+    "15天"
+   ],
+   "expectDocKeyword": "专项假期",
+   "shouldRetrieve": true,
+   "notes": "正典 10：陪产假 15 天（干扰 B06 旧版=7 天）"
+  },
+  {
+   "id": "E07",
+   "category": "single_hop",
+   "question": "紧急费用说明单需要在几个工作日内补录？",
+   "expectedFacts": [
+    "3个工作日"
+   ],
+   "expectDocKeyword": "绿色通道",
+   "shouldRetrieve": true,
+   "notes": "正典 04：3 个工作日内补录"
+  },
+  {
+   "id": "E08",
+   "category": "single_hop",
+   "question": "同一团队同一天远程办公的人数上限是多少？",
+   "expectedFacts": [
+    "40%"
+   ],
+   "expectDocKeyword": "远程办公",
+   "shouldRetrieve": true,
+   "notes": "正典 08：不超过团队 40%"
+  },
+  {
+   "id": "E09",
+   "category": "single_hop",
+   "question": "试用期员工辞职需要提前几天？",
+   "expectedFacts": [
+    "3天"
+   ],
+   "expectDocKeyword": "试用期管理办法",
+   "shouldRetrieve": true,
+   "notes": "正典 06：提前 3 天（干扰 B05 旧版=5 天）"
+  },
+  {
+   "id": "V01",
+   "category": "version_discrimination",
+   "question": "现在迟到扣款标准是多少？",
+   "expectedFacts": [
+    "50元"
+   ],
+   "expectDocKeyword": "考勤管理制度",
+   "shouldRetrieve": true,
+   "notes": "正典 05=50 元/前2次免；干扰 B01 旧版=30 元（朴素措辞「迟到扣款标准」）。已实测：模型用版本标记排除旧版"
+  },
+  {
+   "id": "V02",
+   "category": "version_discrimination",
+   "question": "现行试用期病假上限是几个工作日？",
+   "expectedFacts": [
+    "5个工作日"
+   ],
+   "expectDocKeyword": "试用期管理办法",
+   "shouldRetrieve": true,
+   "notes": "正典 06=5 个工作日；干扰 B05 旧版=3 个工作日"
+  },
+  {
+   "id": "V03",
+   "category": "version_discrimination",
+   "question": "一线城市出差住宿标准每晚多少钱？",
+   "expectedFacts": [
+    "600元"
+   ],
+   "expectDocKeyword": "差旅费报销制度",
+   "shouldRetrieve": true,
+   "notes": "正典 03=600 元；干扰 B03 旧版=500 元"
+  },
+  {
+   "id": "S01",
+   "category": "scope_directed",
+   "question": "上海子公司的P5员工年假是几天？",
+   "expectedFacts": [
+    "10天"
+   ],
+   "expectDocKeyword": "上海子公司年假",
+   "shouldRetrieve": true,
+   "judgeRequired": true,
+   "notes": "【基线已实测沉默失败：答8天（总部）无提示，多次复现一致】关键词层对本题失效：'10天'会与正典'8+2=合计10天'的算术结果撞车造成假阳性（2026-10-08 实测），故 judgeRequired=true，迭代层不计 pass/fail。终评 judge 标准：答10天=对；答8天且明确指出两制度冲突/适用范围歧义=可接受；答8天无提示=错"
+  },
+  {
+   "id": "S02",
+   "category": "scope_directed",
+   "question": "驻场人员的住宿标准是多少？",
+   "expectedFacts": [
+    "300元"
+   ],
+   "expectDocKeyword": "驻场人员差旅",
+   "shouldRetrieve": true,
+   "notes": "C13=300 元（正典差旅 600 是总部标准）。【基线已实测答对】回归保护题"
+  },
+  {
+   "id": "S03",
+   "category": "scope_directed",
+   "question": "实习生病假工资是怎么发的？",
+   "expectedFacts": [
+    "50元"
+   ],
+   "expectDocKeyword": "实习病假工资",
+   "shouldRetrieve": true,
+   "notes": "C10=按日补助 50 元。【基线已实测答对】回归保护题"
+  },
+  {
+   "id": "S04",
+   "category": "scope_directed",
+   "question": "实习生能享受带薪年假吗？",
+   "expectedFacts": [
+    "不享受"
+   ],
+   "expectDocKeyword": "实习假期",
+   "shouldRetrieve": true,
+   "notes": "C07：不享受带薪年假。正典年假制度「适用于签订正式劳动合同的全体员工」本身也排除了实习生——双向一致"
+  },
+  {
+   "id": "D01",
+   "category": "decomposition",
+   "question": "总部和上海子公司的P5年假标准有什么不同？",
+   "expectedFacts": [
+    "8天",
+    "10天"
+   ],
+   "expectDocKeyword": "上海子公司年假",
+   "shouldRetrieve": true,
+   "notes": "需要同时召回两份文档：正典对照表 P5=8 + C01 子公司 P5=10。agent 分解检索的潜在优势题。基线实测：通过（两文档都进 context）"
+  },
+  {
+   "id": "MA01",
+   "category": "multi_aspect",
+   "question": "对比上海子公司和总部在年假、病假、加班调休三方面的规定差异？",
+   "expectedFacts": [
+    "10天",
+    "8天",
+    "10个工作日",
+    "1:2",
+    "1:1.5"
+   ],
+   "expectDocKeyword": "上海子公司年假",
+   "shouldRetrieve": true,
+   "notes": "证据横跨 5+ 份文档（C01/C03/C04/01/02/07），单次检索 top5 装不下全部关键数字——基线预期部分覆盖（factHits<total），agent 分解检索的目标题"
+  },
+  {
+   "id": "MA02",
+   "category": "multi_aspect",
+   "question": "上海子公司和总部的迟到扣款和补卡规定有什么不同？",
+   "expectedFacts": [
+    "20元",
+    "50元",
+    "5次",
+    "3次"
+   ],
+   "expectDocKeyword": "上海子公司考勤",
+   "shouldRetrieve": true,
+   "notes": "跨 C02 与正典 05 的数字对比题，4 个关键数字"
+  },
+  {
+   "id": "MA03",
+   "category": "multi_aspect",
+   "question": "总部和驻场人员的差旅住宿标准有什么不同？",
+   "expectedFacts": [
+    "600元",
+    "300元"
+   ],
+   "expectDocKeyword": "驻场人员差旅",
+   "shouldRetrieve": true,
+   "notes": "跨 03 与 C13 的标准对比题"
+  },
+  {
+   "id": "AG01",
+   "category": "aggregation",
+   "question": "公司一共有哪些类型的假期？",
+   "expectedFacts": [
+    "年假",
+    "病假",
+    "婚假",
+    "产假",
+    "陪产假",
+    "丧假"
+   ],
+   "expectDocKeyword": "专项假期",
+   "shouldRetrieve": true,
+   "notes": "答案散在 01/05/06/10/C07 多篇文档的列举聚合题——单次检索难以覆盖全部假期类型"
+  },
+  {
+   "id": "AG02",
+   "category": "aggregation",
+   "question": "公司报销和审批的时限分别有哪些？各是多少个工作日？",
+   "expectedFacts": [
+    "15个工作日",
+    "3个工作日",
+    "5个工作日"
+   ],
+   "expectDocKeyword": "绿色通道",
+   "shouldRetrieve": true,
+   "notes": "时限散在 03（15）/04（3补录、5双审批）/14（5复核）多篇——聚合题"
+  },
+  {
+   "id": "W01",
+   "category": "needs_web",
+   "question": "今年国庆节放假调休怎么安排？",
+   "expectedFacts": [],
+   "expectDocKeyword": null,
+   "shouldRetrieve": false,
+   "needsWeb": true,
+   "notes": "知识库无法回答（国家节假日安排）。正确行为=说明知识库没有/建议查官方渠道，或（D4 后）联网检索"
+  },
+  {
+   "id": "N01",
+   "category": "no_retrieval",
+   "question": "公司去年的营业收入是多少？",
+   "expectedFacts": [],
+   "expectDocKeyword": null,
+   "shouldRetrieve": false,
+   "notes": "内部财务数据不在知识库。正确行为=明确拒答，不得编造数字"
+  },
+  {
+   "id": "N02",
+   "category": "no_retrieval",
+   "question": "帮我推荐一家附近好吃的日料店？",
+   "expectedFacts": [],
+   "expectDocKeyword": null,
+   "shouldRetrieve": false,
+   "notes": "闲聊/生活服务，正确行为=不检索知识库，礼貌说明或闲聊兜底"
+  },
+  {
+   "id": "E10",
+   "category": "single_hop",
+   "question": "周末加班的调休比例是多少？",
+   "expectedFacts": [
+    "1:1.5"
+   ],
+   "expectDocKeyword": "加班与调休",
+   "shouldRetrieve": true,
+   "notes": "正典 07：周末 1:1.5（干扰 B04 旧版=一律 1:1，C04 子公司=1:2）"
+  },
+  {
+   "id": "MT01",
+   "category": "multi_turn",
+   "turns": [
+    "上海子公司P4年假是几天？",
+    "那P5呢？"
+   ],
+   "expectedFacts": [
+    "10天"
+   ],
+   "expectDocKeyword": "上海子公司年假",
+   "shouldRetrieve": true,
+   "notes": "D6 指代=职级。裸query'那P5呢'会命中总部对照表P5=8天（错误主体），改写后应命中C01子公司P5=10天——可证伪锚点题"
+  },
+  {
+   "id": "MT02",
+   "category": "multi_turn",
+   "turns": [
+    "上海子公司周末加班调休比例是多少？",
+    "那法定节假日呢？"
+   ],
+   "expectedFacts": [
+    "1:4"
+   ],
+   "expectDocKeyword": "上海子公司加班调休",
+   "shouldRetrieve": true,
+   "notes": "D6 指代=加班类型。裸query易命中总部07的1:3（错误主体），C04子公司=1:4——可证伪锚点题"
+  },
+  {
+   "id": "MT03",
+   "category": "multi_turn",
+   "turns": [
+    "总部P4年假几天？",
+    "那上海子公司呢？"
+   ],
+   "expectedFacts": [
+    "7天"
+   ],
+   "expectDocKeyword": "上海子公司年假",
+   "shouldRetrieve": true,
+   "notes": "D6 主语切换：总部(P4=5)→子公司(P4=7)。裸query缺假期类型词，检索易失焦"
+  },
+  {
+   "id": "MT04",
+   "category": "multi_turn",
+   "turns": [
+    "上海子公司P4年假是几天？",
+    "那病假呢？"
+   ],
+   "expectedFacts": [
+    "10个工作日"
+   ],
+   "expectDocKeyword": "上海子公司病假",
+   "shouldRetrieve": true,
+   "notes": "D6 路线旗舰例'那病假呢？'。C03子公司带薪病假≤10个工作日；裸query无主体限定，易答成通用/总部口径"
+  },
+  {
+   "id": "MT05",
+   "category": "multi_turn",
+   "turns": [
+    "总部调休假自生成起多久有效？",
+    "那上海子公司呢？"
+   ],
+   "expectedFacts": [
+    "6个月"
+   ],
+   "expectDocKeyword": "上海子公司加班调休",
+   "shouldRetrieve": true,
+   "notes": "D6 主语切换：总部3个月(C07)→子公司6个月(C04)。裸query易答回总部口径"
+  },
+  {
+   "id": "MT06",
+   "category": "multi_turn",
+   "turns": [
+    "总部加班满3小时有什么补贴？",
+    "那加班到22点以后呢？"
+   ],
+   "expectedFacts": [
+    "实报实销"
+   ],
+   "expectDocKeyword": "加班与调休",
+   "shouldRetrieve": true,
+   "notes": "D6 指代=补偿类型。07正典：22:00后打车凭票实报实销（干扰14同主题数字冲突）"
+  },
+  {
+   "id": "MT07",
+   "category": "multi_turn",
+   "turns": [
+    "总部P4年假几天？",
+    "那上海子公司呢？",
+    "总部比上海子公司少几天？"
+   ],
+   "expectedFacts": [
+    "2天"
+   ],
+   "expectDocKeyword": null,
+   "shouldRetrieve": true,
+   "notes": "D6 三轮跨轮聚合：需同时持有T1总部5天与T2子公司7天才能算出少2天"
+  },
+  {
+   "id": "R01",
+   "category": "compound_reasoning",
+   "question": "一名P5员工司龄4年，今年已休6天年假，其中1天是法定节假日，今年还能再休几天年假？",
+   "expectedFacts": [
+    "4天"
+   ],
+   "expectDocKeyword": null,
+   "shouldRetrieve": true,
+   "notes": "3步复合（corpus-index D5 遗留）：对照表P5=8+司龄满3年加1=9天 → 年假制度四.4法定节假日不计入→实休5天 → 9-5=4天。检索+规则+算术三段"
+  },
+  {
+   "id": "R02",
+   "category": "compound_reasoning",
+   "question": "法定节假日加班了一天（8小时），选调休的话能换多少调休？这些调休最晚什么时候要用完？",
+   "expectedFacts": [
+    "24小时",
+    "3个月"
+   ],
+   "expectDocKeyword": "加班与调休",
+   "shouldRetrieve": true,
+   "notes": "同文档双跳+算术：加班制度 1:3 → 8小时×3=24小时；调休自生成起3个月内有效"
+  },
+  {
+   "id": "R03",
+   "category": "compound_reasoning",
+   "question": "出差时航班取消了，改签费和临时住宿费公司给报吗？自己垫付的钱上限是多少，超过了怎么办？",
+   "expectedFacts": [
+    "5000"
+   ],
+   "expectDocKeyword": null,
+   "shouldRetrieve": true,
+   "notes": "跨文档钩子（组B）：差旅制度第五条只给指针→必须跳《紧急费用审批绿色通道管理办法》：上限5000、超限须事前电话部门总监同意"
+  },
+  {
+   "id": "AZ01",
+   "category": "agent_zone",
+   "question": "北京总部员工：P5 的年假基准是几天？周末加班的调休比例是多少？办公密码多久要换一次？每周最多可以远程办公几天？",
+   "expectedFacts": [
+    "8天",
+    "1:1.5",
+    "90天",
+    "2天"
+   ],
+   "expectDocKeyword": null,
+   "shouldRetrieve": true,
+   "notes": "宽聚合×4文档（对照表/加班调休/信安/远程办公）。探针实证：单条混合查询 top5 不含调休与密码 chunk，基线 5 条上下文物理装不下全部证据；agent 需分主题检索（预算3次内恰好可覆盖）。"
+  },
+  {
+   "id": "AZ02",
+   "category": "agent_zone",
+   "question": "三件事分别说一下：出差航班取消自己垫钱的单次上限？试用期累计病假最多几天？P4 年假基准几天？",
+   "expectedFacts": [
+    "5000",
+    "5个工作日",
+    "5天"
+   ],
+   "expectDocKeyword": null,
+   "shouldRetrieve": true,
+   "notes": "三事实跨三文档（绿色通道/试用期办法/对照表）。探针实证：混合查询 top5 缺试用期病假文档（被 C10/C03/B05 干扰项挤占）。"
+  },
+  {
+   "id": "AZ03",
+   "category": "agent_zone",
+   "question": "公司配的办公电脑出故障了，我能自己找家维修店修吗？按规定应该怎么处理？",
+   "expectedFacts": [
+    "不得私自送修"
+   ],
+   "expectDocKeyword": "信息安全管理制度",
+   "shouldRetrieve": true,
+   "judgeRequired": true,
+   "notes": "片段缺失→文档级补全区：口语化提问（电脑/维修店）检索 top5 全部未命中『设备故障由IT统一处理，不得私自送修』所在内容（探针 sim 前五均为干扰）。修复路径有二：换词重搜（办公设备/IT）或 get_document_detail 拉全文——均为 agent 独有动作。关键词层不可靠（表述多变），judge 终评。"
+  },
+  {
+   "id": "AZ04",
+   "category": "agent_zone",
+   "question": "加班到晚上十点以后打车回家，这笔打车费怎么报销？",
+   "expectedFacts": [],
+   "expectDocKeyword": null,
+   "shouldRetrieve": true,
+   "judgeRequired": true,
+   "notes": "冲突显式化/可审计区：doc07《加班与调休》(2026-01)『22:00后打车凭票据实报实销』vs 干扰doc14《通勤补贴细则》(2025-03)『个人垫付、月末说明单、口径以财务当月通知为准』。两 chunk 均进 top5，差异在是否显式指出冲突并给采信依据（V02 规则2b）——沉默单边采信 = 审计缺陷。judge 判。"
+  },
+  {
+   "id": "AZ05",
+   "category": "agent_zone",
+   "question": "入职第一年想安排婚礼：婚假有几天？请婚假需要提前几天申请？试用期员工请婚假会影响转正吗？",
+   "expectedFacts": [],
+   "expectDocKeyword": null,
+   "shouldRetrieve": true,
+   "judgeRequired": true,
+   "notes": "条件链+组合区：婚假天数（专项假期规定）→申请提前期（假期申请指引，长文档零数字干扰篇）→试用期交互（试用期办法无婚假条款→正确答案是『无相关限制条款』而非编造）。考察：多主题分解 + 诚实处理知识库未覆盖的交叉情形。judge 判。"
+  }
+ ]
 }
