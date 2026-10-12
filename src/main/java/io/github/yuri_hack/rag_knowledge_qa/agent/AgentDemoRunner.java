@@ -17,10 +17,8 @@ public class AgentDemoRunner implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(AgentDemoRunner.class);
 
-    /** v0.1，见 docs/prompt-changelog.md */
-    private static final String SYSTEM_PROMPT =
-            "你是云启科技的内部制度问答助手。回答制度问题前，必须先调用 search_knowledge 检索知识库，并以检索结果为准；"
-                    + "知识库没有的内容要明确说明，不要编造。今天是 2026-10-05。";
+    /** 回滚决策：v0.3 实测规则被执行但目标题无改善、成本约 2 倍，回滚 v0.2.1（V03 保留作档案）。见 BC02 */
+    private static final String SYSTEM_PROMPT = AgentPrompts.SYSTEM_V02;
 
     private static final int MAX_STEPS = 6;
 
