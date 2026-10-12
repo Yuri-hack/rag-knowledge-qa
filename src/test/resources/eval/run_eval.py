@@ -189,7 +189,7 @@ def main():
             "retrievalHit": doc_hit, "retrievedFiles": names[:10],
             "tokens": (usage or {}).get("totalTokens"), "ttftMs": round(ttft or 0),
             "totalMs": round(total), "error": error or err2,
-            "answer": answer[:500],
+            "answer": answer[:2000],
         })
         mark = "✓" if passed else ("⏳judge" if passed is None else "✗")
         print(f"[{mark}] {qid} ({cat}) tokens={rows[-1]['tokens']} "
