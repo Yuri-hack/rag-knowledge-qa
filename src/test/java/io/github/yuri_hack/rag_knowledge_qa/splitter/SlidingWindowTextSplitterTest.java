@@ -68,4 +68,34 @@ class SlidingWindowTextSplitterTest {
         List<TextChunk> chunks = splitter(1000, 200).splitText("只有一句话。", "短文档", "DOC_4");
         assertThat(chunks).hasSize(1);
     }
+
+    @Test
+    void 小数与比例数字不被句点切坏() {
+        // 回归：ASCII 句点曾被当断句符，1:1.5 → "1:1." + "5"（再被过短句过滤丢掉）
+        String content = "# 加班与调休管理制度\n\n"
+                + "| 加班类型 | 调休比例 |\n| 工作日加班 | 1:1 |\n| 周末加班 | 1:1.5 |\n| 法定节假日加班 | 1:3 |\n\n"
+                + "文字版（便于检索）：工作日 1 小时换 1 小时，周末 1 小时换 1.5 小时，法定节假日 1 小时换 3 小时。\n";
+        List<TextChunk> chunks = splitter(400, 100).splitText(content, "加班与调休管理制度", "DOC_5");
+        String merged = chunks.stream().map(TextChunk::getContent).reduce("", (a, b) -> a + " " + b);
+
+        assertThat(merged).contains("1:1.5");
+        assertThat(merged).contains("1.5 小时");
+        assertThat(merged).doesNotContain("1:1. ");
+        assertThat(merged).doesNotContain("1. 5");
+    }
+
+    @Test
+    void 小数在长文档任意位置都不丢失() {
+        StringBuilder sb = new StringBuilder("# 测试\n\n");
+        for (int i = 0; i < 12; i++) {
+            sb.append("第").append(i).append("条：折算系数为 0.5，加班时长按 1.5 倍计算。");
+        }
+        List<TextChunk> chunks = splitter(120, 20).splitText(sb.toString(), "测试", "DOC_6");
+        String merged = chunks.stream().map(TextChunk::getContent).reduce("", (a, b) -> a + " " + b);
+        long zeroFive = merged.split("0\\.5", -1).length - 1;
+        long oneFive = merged.split("1\\.5", -1).length - 1;
+        // 重叠窗口会重复计入，只断言"没有丢失"（每个数字至少出现 12 次）
+        assertThat(zeroFive).isGreaterThanOrEqualTo(12);
+        assertThat(oneFive).isGreaterThanOrEqualTo(12);
+    }
 }

@@ -14,11 +14,18 @@ import java.util.regex.Pattern;
 @Component
 public class SlidingWindowTextSplitter implements TextSplitter {
 
-    /** 中英文混合分句。曾只认 [.!?]，纯中文整篇落一个 chunk（文档级检索假象）。 */
-    private static final Pattern SENTENCE_PATTERN = Pattern.compile(
-        "[^。！？；.!?\\n]+(?:[。！？；.!?]+[”’」』）)]*|\\n+|$)",
-        Pattern.MULTILINE
-    );
+    /**
+     * 断句规则（无损优先）：
+     * - 中文句读（。！？；）与换行：直接断句；
+     * - ASCII .!?：仅在后接空白时断句——否则会把 1.5 / 1:1.5 这类数字切成两半，
+     *   被"过短句过滤"丢掉后索引里就永久缺了数字（2026-10-13 实测：1:1.5 → 1:1.）。
+     */
+    private static final Pattern CJK_SENTENCE_END = Pattern.compile("(?<=[。！？；])");
+
+    private static final Pattern ASCII_SENTENCE_END = Pattern.compile("(?<=[.!?])\\s+");
+
+    /** 过短片段（表格分隔线残留等）不单独成句 */
+    private static final int MIN_SENTENCE_LENGTH = 5;
 
     private static final Pattern PARAGRAPH_PATTERN = Pattern.compile("\\n\\s*\\n");
 
@@ -141,39 +148,21 @@ public class SlidingWindowTextSplitter implements TextSplitter {
         return Math.max(1, overlapSentences);
     }
 
-    /**
-     * 提取句子
-     */
+    /** 提取句子：段落 → 行 → 中文句读 → ASCII 句读（仅后接空白时），逐级细分且不丢字符。 */
     private List<String> extractSentences(String content) {
         List<String> sentences = new ArrayList<>();
-
-        // 首先按段落分割
-        String[] paragraphs = PARAGRAPH_PATTERN.split(content);
-
-        for (String paragraph : paragraphs) {
-            if (paragraph.trim().isEmpty()) continue;
-
-            // 在段落内分割句子
-            java.util.regex.Matcher matcher = SENTENCE_PATTERN.matcher(paragraph);
-            while (matcher.find()) {
-                String sentence = matcher.group().trim();
-                if (sentence.length() > 5) { // 过滤过短的句子
-                    sentences.add(sentence);
-                }
-            }
-
-            // 如果正则匹配失败，使用简单分割作为备选
-            if (sentences.isEmpty()) {
-                String[] fallbackSentences = paragraph.split("[.!?]+");
-                for (String sentence : fallbackSentences) {
-                    String trimmed = sentence.trim();
-                    if (trimmed.length() > 5) {
-                        sentences.add(trimmed);
+        for (String paragraph : PARAGRAPH_PATTERN.split(content)) {
+            for (String line : paragraph.split("\\n")) {
+                for (String cjkPiece : CJK_SENTENCE_END.split(line)) {
+                    for (String piece : ASCII_SENTENCE_END.split(cjkPiece)) {
+                        String sentence = piece.trim();
+                        if (sentence.length() > MIN_SENTENCE_LENGTH) {
+                            sentences.add(sentence);
+                        }
                     }
                 }
             }
         }
-
         return sentences;
     }
 
