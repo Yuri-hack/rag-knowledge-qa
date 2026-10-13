@@ -11,6 +11,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime
 from pathlib import Path
+from typing import NamedTuple
 
 BASE = "http://localhost:8080"
 HERE = Path(__file__).parent
@@ -47,6 +48,18 @@ def set_cache_enabled(enabled: bool) -> dict:
     req = urllib.request.Request(url, data=b"", method="POST")
     with urllib.request.urlopen(req, timeout=10) as resp:
         return json.loads(resp.read().decode("utf-8", "ignore"))
+
+
+class TurnResult(NamedTuple):
+    """一轮问答的完整结果；infra_retries 为 infra 故障重试次数。"""
+    answer: str
+    usage: dict | None
+    ttft_ms: float | None
+    total_ms: float
+    error: str | None
+    prompt_version: str | None
+    termination: str | None
+    infra_retries: int = 0
 
 
 def stream_answer(question: str, endpoint: str = "baseline", mode: str = "agent",
@@ -90,7 +103,7 @@ def stream_answer(question: str, endpoint: str = "baseline", mode: str = "agent"
     except Exception as e:  # noqa: BLE001
         error = f"request failed: {e}"
     total = (time.time() - t0) * 1000
-    return "".join(answer), usage, ttft, total, error, prompt_version, termination
+    return TurnResult("".join(answer), usage, ttft, total, error, prompt_version, termination)
 
 
 LLM_FAILURE_MARKER = "[模型调用失败]"
@@ -107,15 +120,15 @@ def is_infra_failure(answer: str, error, termination) -> bool:
 
 def ask_with_retry(question: str, retries: int = 2, **kw):
     """infra 失败自动重试（能力失败不重试），重试次数入结果。"""
-    infra_retries = 0
+    retries_left = retries
     while True:
         r = stream_answer(question, **kw)
-        answer, error, termination = r[0], r[4], r[6]
-        if not is_infra_failure(answer, error, termination) or infra_retries >= retries:
-            return (*r, infra_retries)
-        infra_retries += 1
-        print(f"    [infra] 第 {infra_retries} 次为基础设施故障（{str(error or termination)[:80]}），重试")
+        if not is_infra_failure(r.answer, r.error, r.termination) or retries_left <= 0:
+            return r
+        print(f"    [infra] 基础设施故障（{str(r.error or r.termination)[:80]}），重试")
+        retries_left -= 1
         time.sleep(2)
+    # unreachable
 
 
 def search_files(query: str, top_k: int = 10):
@@ -191,21 +204,19 @@ def main():
         if len(turns) > 1:
             session_id = f"eval-{args.label}-{run_ts}-{qid}"  # 每次运行独立，避免会话串场
         turn_answers, turn_tokens = [], []
-        usage, ttft, error, prompt_version, termination = None, None, None, None, None
-        infra_retries = 0
+        last: TurnResult | None = None
         for i, t in enumerate(turns):
-            answer, usage, ttft, total, error, prompt_version, termination, ir = ask_with_retry(
+            last = ask_with_retry(
                 t, endpoint=args.endpoint, mode=args.mode, session=session_id, rewrite=rewrite)
-            infra_retries += ir
-            turn_answers.append(answer)
-            turn_tokens.append((usage or {}).get("totalTokens") or 0)
+            turn_answers.append(last.answer)
+            turn_tokens.append((last.usage or {}).get("totalTokens") or 0)
             if session_id and i < len(turns) - 1:
                 time.sleep(1.0)  # 等 detached 会话追加落库
-        answer = turn_answers[-1]
+        answer = last.answer
         ans_n = norm(answer)
 
         # infra 故障（重试后仍失败）：不计入能力分母
-        infra = is_infra_failure(answer, error, termination)
+        infra = is_infra_failure(last.answer, last.error, last.termination)
 
         if q.get("shouldRetrieve", True):
             fact_hits = [f for f in facts if f in ans_n]
@@ -229,14 +240,14 @@ def main():
         row = {
             "id": qid, "category": cat, "question": q.get("question") or turns[-1],
             "passed": passed, "judgeRequired": bool(q.get("judgeRequired")),
-            "infraError": infra, "infraRetries": infra_retries,
-            "termination": termination,
+            "infraError": infra, "infraRetries": last.infra_retries,
+            "termination": last.termination,
             "factHits": fact_hits, "factsExpected": facts,
             "shouldRetrieve": q.get("shouldRetrieve", True),
             "retrievalHit": doc_hit, "retrievedFiles": names[:10],
             "tokens": (sum(turn_tokens) if any(turn_tokens) else None),
-            "ttftMs": round(ttft or 0),
-            "totalMs": round(total), "error": error or err2,
+            "ttftMs": round(last.ttft_ms or 0),
+            "totalMs": round(last.total_ms), "error": last.error or err2,
             "answer": answer[:2000],
         }
         if len(turns) > 1:
@@ -248,8 +259,8 @@ def main():
         print(f"[{mark}] {qid} ({cat}) tokens={rows[-1]['tokens']} "
               f"ttft={rows[-1]['ttftMs']}ms total={rows[-1]['totalMs']}ms "
               f"facts={len(fact_hits)}/{len(facts)}")
-        if error or err2:
-            print(f"    !! {error or err2}")
+        if last.error or err2:
+            print(f"    !! {last.error or err2}")
 
     # 汇总（infra 故障题不计入能力分母，单独汇报）
     print("\n===== 汇总（按 category，infra 不计入分母）=====")
@@ -273,13 +284,13 @@ def main():
     ok = sum(1 for r in cap_rows if r["passed"])
     infra_total = len(rows) - len(cap_rows)
     print(f"\nTOTAL {ok}/{len(cap_rows)}  infra={infra_total}  label={args.label} "
-          f"endpoint={args.endpoint} prompt={prompt_version} rewrite={args.rewrite}")
+          f"endpoint={args.endpoint} prompt={(last.prompt_version if last else None)} rewrite={args.rewrite}")
 
     RESULTS.mkdir(exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
     out = RESULTS / f"{args.label}-{ts}.json"
     out.write_text(json.dumps({
-        "label": args.label, "endpoint": args.endpoint, "promptVersion": prompt_version,
+        "label": args.label, "endpoint": args.endpoint, "promptVersion": (last.prompt_version if last else None),
         "rewrite": rewrite,
         "cache": cache_report, "finishedAt": ts, "rows": rows,
     }, ensure_ascii=False, indent=1), encoding="utf-8")

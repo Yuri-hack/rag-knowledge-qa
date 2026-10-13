@@ -21,11 +21,19 @@ public class KnowledgeSearchTool implements Tool {
 
     // 不做内容截断：曾截 400 字符砍掉尾部数字行，制造基线没有的失败面（已移除）。
 
+    /** 工具名收敛为常量：AgentLoop 预算计数与 B 臂检索共用 */
+    public static final String NAME = "search_knowledge";
+
+    private static final JsonObject PARAMETERS_SCHEMA = JsonUtils.parseString(
+            "{\"type\":\"object\",\"properties\":{"
+            + "\"query\":{\"type\":\"string\",\"description\":\"自包含的检索关键词，如：P5 年假 天数\"}"
+            + "},\"required\":[\"query\"]}").getAsJsonObject();
+
     private final KnowledgeBaseService knowledgeBaseService;
 
     @Override
     public String name() {
-        return "search_knowledge";
+        return NAME;
     }
 
     @Override
@@ -37,9 +45,7 @@ public class KnowledgeSearchTool implements Tool {
 
     @Override
     public JsonObject parametersSchema() {
-        return JsonUtils.parseString("{\"type\":\"object\",\"properties\":{"
-                + "\"query\":{\"type\":\"string\",\"description\":\"自包含的检索关键词，如：P5 年假 天数\"}"
-                + "},\"required\":[\"query\"]}").getAsJsonObject();
+        return PARAMETERS_SCHEMA;
     }
 
     @Override

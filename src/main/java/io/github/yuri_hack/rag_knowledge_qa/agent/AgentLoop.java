@@ -41,8 +41,7 @@ public class AgentLoop {
 
     public AgentTrace run(String question, String systemPrompt, int maxSteps) {
         maxSteps = Math.min(maxSteps, MAX_STEPS_LIMIT);
-        AgentTrace trace = new AgentTrace(question);
-        trace.setPromptVersion(AgentPrompts.versionOf(systemPrompt));
+        AgentTrace trace = newTrace(question, systemPrompt);
         List<ToolBase> tools = toolRegistry.toToolFunctions();
         // 检索预算计数器：prompt 约定在此强制
         Map<String, Integer> toolUsage = new HashMap<>();
@@ -80,14 +79,13 @@ public class AgentLoop {
 
     /** B 臂对照：单次检索 + 同 prompt 无工具生成，隔离提示词与循环的贡献。 */
     public AgentTrace runSingleShot(String question, String systemPrompt) {
-        AgentTrace trace = new AgentTrace(question);
-        trace.setPromptVersion(AgentPrompts.versionOf(systemPrompt));
+        AgentTrace trace = newTrace(question, systemPrompt);
 
         AgentStep step1 = trace.addStep(1, null);
         JsonObject args = new JsonObject();
         args.addProperty("query", question);
-        String result = toolRegistry.execute("search_knowledge", args.toString());
-        step1.addToolCall("search_knowledge", question, excerpt(result), !ToolRegistry.isFailure(result));
+        String result = toolRegistry.execute(KnowledgeSearchTool.NAME, args.toString());
+        step1.addToolCall(KnowledgeSearchTool.NAME, question, excerpt(result), !ToolRegistry.isFailure(result));
 
         List<Message> messages = initialMessages(systemPrompt, question + "\n\n【检索结果】\n" + result);
 
@@ -101,6 +99,12 @@ public class AgentLoop {
         } else {
             trace.complete(content);
         }
+        return trace;
+    }
+
+    private static AgentTrace newTrace(String question, String systemPrompt) {
+        AgentTrace trace = new AgentTrace(question);
+        trace.setPromptVersion(AgentPrompts.versionOf(systemPrompt));
         return trace;
     }
 
@@ -154,7 +158,7 @@ public class AgentLoop {
 
     /** search_knowledge 按次计数强制预算，超出返回固定文本。 */
     private String executeWithSearchBudget(String name, String argumentsJson, Map<String, Integer> usage) {
-        if ("search_knowledge".equals(name)
+        if (KnowledgeSearchTool.NAME.equals(name)
                 && usage.merge(name, 1, Integer::sum) > AgentPrompts.SEARCH_BUDGET) {
             return SEARCH_BUDGET_MARKER + " search_knowledge 已调用满 " + AgentPrompts.SEARCH_BUDGET + " 次，"
                     + "请基于已获得的全部信息直接回答最初的问题，并说明仍有不足之处，不要再调用任何工具。";

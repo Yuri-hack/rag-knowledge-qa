@@ -32,12 +32,15 @@ public class DocumentDetailTool implements Tool {
                 + "长文档按 2400 字符分窗返回：part=1（默认）从头开始，内容末尾提示继续时传 part=2、3…直到提示已到文档末尾。";
     }
 
+    private static final JsonObject PARAMETERS_SCHEMA = JsonUtils.parseString(
+            "{\"type\":\"object\",\"properties\":{"
+            + "\"documentId\":{\"type\":\"string\",\"description\":\"文档ID，来自 search_knowledge 结果\"},"
+            + "\"part\":{\"type\":\"integer\",\"description\":\"长文档的分窗页码，从 1 开始；短文档只需 part=1（可省略）\"}"
+            + "},\"required\":[\"documentId\"]}").getAsJsonObject();
+
     @Override
     public JsonObject parametersSchema() {
-        return JsonUtils.parseString("{\"type\":\"object\",\"properties\":{"
-                + "\"documentId\":{\"type\":\"string\",\"description\":\"文档ID，来自 search_knowledge 结果\"},"
-                + "\"part\":{\"type\":\"integer\",\"description\":\"长文档的分窗页码，从 1 开始；短文档只需 part=1（可省略）\"}"
-                + "},\"required\":[\"documentId\"]}").getAsJsonObject();
+        return PARAMETERS_SCHEMA;
     }
 
     @Override

@@ -1,7 +1,6 @@
 package io.github.yuri_hack.rag_knowledge_qa.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -13,7 +12,6 @@ import java.util.List;
 /** D6 会话记忆：Redis list 存最近 N 轮，读写失败降级为无记忆。 */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ChatSessionStore {
 
     /** 一轮对话：question 记录用户原始问题（非改写后），answer 为最终完整回答 */
@@ -24,12 +22,18 @@ public class ChatSessionStore {
 
     private final JedisPooled jedisPooled;
     private final ObjectMapper objectMapper;
+    private final int maxTurns;
+    private final int ttlMinutes;
 
-    @Value("${rag.memory.max-turns:3}")
-    private int maxTurns;
-
-    @Value("${rag.memory.ttl-minutes:120}")
-    private int ttlMinutes;
+    /** 构造注入配置，字段保持不可变 */
+    public ChatSessionStore(JedisPooled jedisPooled, ObjectMapper objectMapper,
+                            @Value("${rag.memory.max-turns:3}") int maxTurns,
+                            @Value("${rag.memory.ttl-minutes:120}") int ttlMinutes) {
+        this.jedisPooled = jedisPooled;
+        this.objectMapper = objectMapper;
+        this.maxTurns = maxTurns;
+        this.ttlMinutes = ttlMinutes;
+    }
 
     public List<Turn> load(String sessionId) {
         if (sessionId == null || sessionId.isBlank()) {

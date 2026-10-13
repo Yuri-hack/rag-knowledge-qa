@@ -97,15 +97,8 @@ public abstract class BaseTongYiService {
     }
 
     private GenerationParam buildAskParam(List<Message> messages, List<ToolBase> tools, TongYiModelConfig modelConfig) {
-        var builder = GenerationParam.builder()
-                .apiKey(tongYiBaseConfig.getApiKey())
-                .model(modelConfig.getModel())
-                .messages(messages)
-                .resultFormat(GenerationParam.ResultFormat.MESSAGE)
-                .maxTokens(modelConfig.getMaxTokens())
-                .temperature(modelConfig.getTemperature())
-                .topP(modelConfig.getTopP())
-                // 独立开关控制（默认 false），不挂 modelConfig 避免基线误开
+        // 独立开关控制（默认 false），不挂 modelConfig 避免基线误开
+        var builder = baseParam(messages, modelConfig)
                 .enableSearch(Boolean.TRUE.equals(tongYiBaseConfig.getAgentEnableSearch()));
         // 工具列表为空时不发送 tools 字段（空数组部分端点会报错）
         if (tools != null && !tools.isEmpty()) {
@@ -161,6 +154,14 @@ public abstract class BaseTongYiService {
      * 构建生成参数
      */
     protected GenerationParam buildGenerationParam(List<Message> messages, TongYiModelConfig modelConfig, boolean isStream) {
+        return baseParam(messages, modelConfig)
+                .incrementalOutput(isStream)
+                .enableSearch(modelConfig.getEnableSearch())
+                .build();
+    }
+
+    /** 阻塞/流式/ask 三路的公共参数：模型、消息与采样参数 */
+    private GenerationParam.GenerationParamBuilder baseParam(List<Message> messages, TongYiModelConfig modelConfig) {
         return GenerationParam.builder()
                 .apiKey(tongYiBaseConfig.getApiKey())
                 .model(modelConfig.getModel())
@@ -168,10 +169,7 @@ public abstract class BaseTongYiService {
                 .resultFormat(GenerationParam.ResultFormat.MESSAGE)
                 .maxTokens(modelConfig.getMaxTokens())
                 .temperature(modelConfig.getTemperature())
-                .incrementalOutput(isStream)
-                .topP(modelConfig.getTopP())
-                .enableSearch(modelConfig.getEnableSearch())
-                .build();
+                .topP(modelConfig.getTopP());
     }
 
     /**
