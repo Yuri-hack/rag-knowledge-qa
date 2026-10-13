@@ -30,14 +30,9 @@ public class TongYiQueryRewriteServiceImpl extends BaseTongYiService implements 
             return question;
         }
         try {
-            StringBuilder transcript = new StringBuilder();
-            for (Turn t : history) {
-                transcript.append("用户：").append(t.question()).append('\n')
-                        .append("助手：").append(StringUtils.abbreviate(t.answer(), ANSWER_EXCERPT_LEN)).append('\n');
-            }
-            List<Message> messages = buildMessages(
-                    promptConfig.getRewritePrompt(),
-                    transcript + "\n【最新问题】\n" + question);
+            StringBuilder userMessage = new StringBuilder(buildTranscript(history))
+                    .append("\n【最新问题】\n").append(question);
+            List<Message> messages = buildMessages(promptConfig.getRewritePrompt(), userMessage.toString());
 
             ChatResponse resp = generate(messages, tongYiBaseConfig.getRewriteModelConfig());
             if (!resp.isSuccess() || StringUtils.isBlank(resp.getContent())) {
@@ -56,12 +51,22 @@ public class TongYiQueryRewriteServiceImpl extends BaseTongYiService implements 
         }
     }
 
-    /** 模型偶尔给答案包引号/前缀，剥掉最外层引号；其余情况原样信任 */
-    private static String unwrap(String s) {
-        if (s.length() >= 2
-                && ((s.startsWith("\"") && s.endsWith("\"")) || (s.startsWith("“") && s.endsWith("”")))) {
-            return s.substring(1, s.length() - 1).trim();
+    /** 历史答案进入改写上下文的截断长度见 ANSWER_EXCERPT_LEN：只需指代线索，不需要全文 */
+    private static String buildTranscript(List<Turn> history) {
+        StringBuilder transcript = new StringBuilder();
+        for (Turn turn : history) {
+            transcript.append("用户：").append(turn.question()).append('\n')
+                    .append("助手：").append(StringUtils.abbreviate(turn.answer(), ANSWER_EXCERPT_LEN)).append('\n');
         }
-        return s;
+        return transcript.toString();
+    }
+
+    /** 模型偶尔给答案包引号/前缀，剥掉最外层引号；其余情况原样信任 */
+    private static String unwrap(String text) {
+        if (text.length() >= 2
+                && ((text.startsWith("\"") && text.endsWith("\"")) || (text.startsWith("“") && text.endsWith("”")))) {
+            return text.substring(1, text.length() - 1).trim();
+        }
+        return text;
     }
 }

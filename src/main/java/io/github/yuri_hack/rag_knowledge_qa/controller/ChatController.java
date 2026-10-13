@@ -26,11 +26,15 @@ public class ChatController {
         return chatOrchestrationService.chatStream(question, sessionId, rewrite)
                 .onErrorResume(e -> {
                     log.error("RAG流式调用异常", e);
-                    return Flux.just(StreamChatResponse.builder()
-                            .content("")
-                            .finished(true)
-                            .errorMessage("RAG流式调用异常: " + e.getMessage())
-                            .build());
+                    return Flux.just(errorResponse(e));
                 });
+    }
+
+    private static StreamChatResponse errorResponse(Throwable e) {
+        return StreamChatResponse.builder()
+                .content("")
+                .finished(true)
+                .errorMessage("RAG流式调用异常: " + e.getMessage())
+                .build();
     }
 }

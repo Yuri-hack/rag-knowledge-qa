@@ -15,6 +15,7 @@ import io.github.yuri_hack.rag_knowledge_qa.config.TongYiModelConfig;
 import io.github.yuri_hack.rag_knowledge_qa.dto.response.ChatResponse;
 import io.github.yuri_hack.rag_knowledge_qa.dto.response.StreamChatResponse;
 import io.github.yuri_hack.rag_knowledge_qa.dto.response.UsageInfo;
+import io.github.yuri_hack.rag_knowledge_qa.util.ReactorUtils;
 import io.reactivex.Flowable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +40,15 @@ public abstract class BaseTongYiService {
      */
     public static final String LLM_FAILURE_MARKER = "[模型调用失败] ";
 
+    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
+    private static final Duration READ_TIMEOUT = Duration.ofSeconds(60);
+    private static final Duration WRITE_TIMEOUT = Duration.ofSeconds(10);
+
+    /**
+     * D2 要求：单次 LLM 调用失败重试一次再放弃——评测数字里不混入单次网络抖动的噪声
+     */
+    private static final int MAX_ASK_ATTEMPTS = 2;
+
     /**
      * 超时挂在整个客户端上（ask 与流式共用）：ask 是 agent 循环的串行瓶颈，一次挂起=整轮挂起。
      * readTimeout 对流式调用按"块间最大间隔"生效，不影响长回答；baseUrl 传 null 沿用 SDK 默认。
@@ -47,9 +57,9 @@ public abstract class BaseTongYiService {
             Protocol.HTTP.getValue(),
             null,
             ConnectionOptions.builder()
-                    .connectTimeout(Duration.ofSeconds(10))
-                    .readTimeout(Duration.ofSeconds(60))
-                    .writeTimeout(Duration.ofSeconds(10))
+                    .connectTimeout(CONNECT_TIMEOUT)
+                    .readTimeout(READ_TIMEOUT)
+                    .writeTimeout(WRITE_TIMEOUT)
                     .build());
 
     /**
@@ -74,6 +84,30 @@ public abstract class BaseTongYiService {
      * 注意：enableSearch 显式关闭——它和 tool calling 冲突（D4 风险点）。
      */
     protected AskResult ask(List<Message> messages, List<ToolBase> tools, TongYiModelConfig modelConfig) {
+        GenerationParam param = buildAskParam(messages, tools, modelConfig);
+        Exception lastError = null;
+        for (int attempt = 1; attempt <= MAX_ASK_ATTEMPTS; attempt++) {
+            try {
+                GenerationResult result = generation.call(param);
+                GenerationUsage usage = result.getUsage();
+                UsageInfo usageInfo = usage == null ? UsageInfo.builder().build() : toUsageInfo(usage);
+                return new AskResult(result.getOutput().getChoices().get(0).getMessage(), usageInfo);
+            } catch (Exception e) {
+                lastError = e;
+                log.warn("agent ask 第 {} 次调用失败: {}", attempt, e.getMessage());
+            }
+        }
+        log.error("agent ask 调用失败（已重试 {} 次）", MAX_ASK_ATTEMPTS - 1, lastError);
+        // 失败也是输入：返回一条失败消息，让循环决定重试还是终止（不抛异常炸链）
+        return new AskResult(
+                Message.builder()
+                        .role(Role.ASSISTANT.getValue())
+                        .content(LLM_FAILURE_MARKER + lastError.getMessage())
+                        .build(),
+                UsageInfo.builder().build());
+    }
+
+    private GenerationParam buildAskParam(List<Message> messages, List<ToolBase> tools, TongYiModelConfig modelConfig) {
         var builder = GenerationParam.builder()
                 .apiKey(tongYiBaseConfig.getApiKey())
                 .model(modelConfig.getModel())
@@ -90,32 +124,7 @@ public abstract class BaseTongYiService {
         if (tools != null && !tools.isEmpty()) {
             builder.tools(tools);
         }
-        GenerationParam param = builder.build();
-        // D2 要求：单次 LLM 调用失败重试一次再放弃——评测数字里不混入单次网络抖动的噪声
-        Exception lastError = null;
-        for (int attempt = 1; attempt <= 2; attempt++) {
-            try {
-                GenerationResult result = generation.call(param);
-                GenerationUsage u = result.getUsage();
-                UsageInfo usageInfo = UsageInfo.builder()
-                        .inputTokens(u == null ? null : u.getInputTokens())
-                        .outputTokens(u == null ? null : u.getOutputTokens())
-                        .totalTokens(u == null ? null : u.getTotalTokens())
-                        .build();
-                return new AskResult(result.getOutput().getChoices().get(0).getMessage(), usageInfo);
-            } catch (Exception e) {
-                lastError = e;
-                log.warn("agent ask 第 {} 次调用失败: {}", attempt, e.getMessage());
-            }
-        }
-        log.error("agent ask 调用失败（已重试 1 次）", lastError);
-        // 失败也是输入：返回一条失败消息，让循环决定重试还是终止（不抛异常炸链）
-        return new AskResult(
-                Message.builder()
-                        .role(Role.ASSISTANT.getValue())
-                        .content(LLM_FAILURE_MARKER + lastError.getMessage())
-                        .build(),
-                UsageInfo.builder().build());
+        return builder.build();
     }
 
     /**
@@ -145,7 +154,7 @@ public abstract class BaseTongYiService {
      */
     protected Flux<StreamChatResponse> writeCacheDetached(Flux<StreamChatResponse> source,
                                                           Consumer<String> cacheAction) {
-        return io.github.yuri_hack.rag_knowledge_qa.util.ReactorUtils.writeAnswerDetached(source, cacheAction);
+        return ReactorUtils.writeAnswerDetached(source, cacheAction);
     }
 
     /**
@@ -186,18 +195,11 @@ public abstract class BaseTongYiService {
      */
     protected ChatResponse parseResponse(GenerationResult result) {
         String content = result.getOutput().getChoices().get(0).getMessage().getContent();
-        GenerationUsage usage = result.getUsage();
-
-        UsageInfo usageInfo = UsageInfo.builder()
-                .inputTokens(usage.getInputTokens())
-                .outputTokens(usage.getOutputTokens())
-                .totalTokens(usage.getTotalTokens())
-                .build();
 
         return ChatResponse.builder()
                 .success(true)
                 .content(content)
-                .usage(usageInfo)
+                .usage(toUsageInfo(result.getUsage()))
                 .build();
     }
 
@@ -211,11 +213,7 @@ public abstract class BaseTongYiService {
         boolean finished = finishReason != null && !"null".equals(finishReason);
 
         if (finished) {
-            usageInfo = UsageInfo.builder()
-                    .inputTokens(result.getUsage().getInputTokens())
-                    .outputTokens(result.getUsage().getOutputTokens())
-                    .totalTokens(result.getUsage().getTotalTokens())
-                    .build();
+            usageInfo = toUsageInfo(result.getUsage());
         }
 
         return StreamChatResponse.builder()
@@ -233,6 +231,14 @@ public abstract class BaseTongYiService {
                 .content("")
                 .finished(true)
                 .errorMessage(errorMessage)
+                .build();
+    }
+
+    private static UsageInfo toUsageInfo(GenerationUsage usage) {
+        return UsageInfo.builder()
+                .inputTokens(usage.getInputTokens())
+                .outputTokens(usage.getOutputTokens())
+                .totalTokens(usage.getTotalTokens())
                 .build();
     }
 }

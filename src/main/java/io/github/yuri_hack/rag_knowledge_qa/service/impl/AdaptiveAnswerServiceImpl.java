@@ -39,15 +39,7 @@ public class AdaptiveAnswerServiceImpl extends BaseTongYiService implements Adap
     public Flux<StreamChatResponse> handleAmbiguousQuery(String question) {
         // Flux.defer：检索延迟到订阅时才执行——修复 eager 检索（组装期就跑，无人订阅也烧一次检索）
         return Flux.defer(() -> {
-            // 构造prompt
-            List<KnowledgeSearchResult> results = knowledgeBaseService.searchKnowledge(SearchRequest.of(question));
-            String context = results.stream()
-                    .map(KnowledgeSearchResult::getContent)
-                    .collect(Collectors.joining("\n\n"));
-            String prompt = promptConfig.getAdaptiveAnswerPrompt().replace("{retrieved_docs}", context);
-
-            // 构造message
-            List<Message> messages = buildMessages(prompt, question);
+            List<Message> messages = buildMessages(buildAdaptivePrompt(question), question);
 
             // 生成答案（缓存回写与订阅者解耦）
             return writeCacheDetached(
@@ -58,5 +50,13 @@ public class AdaptiveAnswerServiceImpl extends BaseTongYiService implements Adap
                         log.info("自适应回答完成，缓存已更新");
                     });
         });
+    }
+
+    private String buildAdaptivePrompt(String question) {
+        List<KnowledgeSearchResult> results = knowledgeBaseService.searchKnowledge(SearchRequest.of(question));
+        String context = results.stream()
+                .map(KnowledgeSearchResult::getContent)
+                .collect(Collectors.joining("\n\n"));
+        return promptConfig.getAdaptiveAnswerPrompt().replace("{retrieved_docs}", context);
     }
 }

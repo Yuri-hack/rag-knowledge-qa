@@ -35,10 +35,10 @@ public class CacheAdminController {
 
     @GetMapping("/status")
     public Map<String, Object> status() {
-        Map<String, Object> s = new LinkedHashMap<>();
-        s.put("exact", cacheConfig.getExact().isEnabled());
-        s.put("semanticAnswer", cacheConfig.getSemanticAnswer().isEnabled());
-        s.put("semanticDocument", cacheConfig.getSemantic().isEnabled());
-        return s;
+        Map<String, Object> status = new LinkedHashMap<>();
+        status.put("exact", cacheConfig.getExact().isEnabled());
+        status.put("semanticAnswer", cacheConfig.getSemanticAnswer().isEnabled());
+        status.put("semanticDocument", cacheConfig.getSemantic().isEnabled());
+        return status;
     }
 }

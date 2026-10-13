@@ -1,4 +1,3 @@
-// TongYiRAGServiceImpl.java (修改后)
 package io.github.yuri_hack.rag_knowledge_qa.service.impl;
 
 import com.alibaba.dashscope.common.Message;
@@ -73,8 +72,7 @@ public class TongYiRAGServiceImpl extends BaseTongYiService implements RAGServic
                 buildRAGMessages(question, contextChunks)
                         .flatMapMany(messages -> generateStream(messages, tongYiBaseConfig.getRagModelConfig())),
                 answer -> {
-                    cacheService.cacheExactAnswer(question, answer);
-                    semanticAnswerCacheService.cacheSemanticAnswer(question, answer);
+                    cacheAnswer(question, answer);
                     log.info("语义缓存重新生成完成，答案已缓存");
                 });
     }
@@ -86,30 +84,37 @@ public class TongYiRAGServiceImpl extends BaseTongYiService implements RAGServic
         AtomicReference<List<Long>> documentChunkIds = new AtomicReference<>();
 
         return writeCacheDetached(
-                Mono.fromCallable(() -> {
-                            // 检索知识
-                            List<KnowledgeSearchResult> searchResults = knowledgeBaseService
-                                    .searchKnowledge(SearchRequest.of(question, ragSearchTopK));
-
-                            List<String> contexts = searchResults.stream()
-                                    .map(KnowledgeSearchResult::getContent)
-                                    .toList();
-
-                            List<Long> chunkIds = searchResults.stream()
-                                    .map(KnowledgeSearchResult::getChunkId)
-                                    .toList();
-                            documentChunkIds.set(chunkIds);
-
-                            return contexts;
-                        })
+                retrieveContexts(question, documentChunkIds)
                         .flatMapMany(contexts -> buildRAGMessages(question, contexts))
                         .flatMap(messages -> generateStream(messages, tongYiBaseConfig.getRagModelConfig())),
                 answer -> {
-                    cacheService.cacheExactAnswer(question, answer);
-                    semanticAnswerCacheService.cacheSemanticAnswer(question, answer);
+                    cacheAnswer(question, answer);
                     semanticDocumentCacheService.cacheSemanticDocument(question, documentChunkIds.get());
                     log.info("完整RAG流程完成，缓存已更新");
                 });
+    }
+
+    /**
+     * 检索知识：返回上下文内容，命中的 chunkId 通过 chunkIdsRef 带出供文档缓存回写
+     */
+    private Mono<List<String>> retrieveContexts(String question, AtomicReference<List<Long>> chunkIdsRef) {
+        return Mono.fromCallable(() -> {
+            List<KnowledgeSearchResult> searchResults = knowledgeBaseService
+                    .searchKnowledge(SearchRequest.of(question, ragSearchTopK));
+
+            chunkIdsRef.set(searchResults.stream()
+                    .map(KnowledgeSearchResult::getChunkId)
+                    .toList());
+
+            return searchResults.stream()
+                    .map(KnowledgeSearchResult::getContent)
+                    .toList();
+        });
+    }
+
+    private void cacheAnswer(String question, String answer) {
+        cacheService.cacheExactAnswer(question, answer);
+        semanticAnswerCacheService.cacheSemanticAnswer(question, answer);
     }
 
     /**

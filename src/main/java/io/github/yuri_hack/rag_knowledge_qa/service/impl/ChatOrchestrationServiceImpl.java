@@ -6,11 +6,11 @@ import io.github.yuri_hack.rag_knowledge_qa.cache.model.SemanticAnswerCacheHit;
 import io.github.yuri_hack.rag_knowledge_qa.config.RoutingConfig;
 import io.github.yuri_hack.rag_knowledge_qa.dto.response.StreamChatResponse;
 import io.github.yuri_hack.rag_knowledge_qa.knowledge.KnowledgeBaseService;
+import io.github.yuri_hack.rag_knowledge_qa.service.AdaptiveAnswerService;
 import io.github.yuri_hack.rag_knowledge_qa.service.ChatOrchestrationService;
 import io.github.yuri_hack.rag_knowledge_qa.service.ChatSessionStore;
 import io.github.yuri_hack.rag_knowledge_qa.service.ChatSessionStore.Turn;
 import io.github.yuri_hack.rag_knowledge_qa.service.DailyChatService;
-import io.github.yuri_hack.rag_knowledge_qa.service.AdaptiveAnswerService;
 import io.github.yuri_hack.rag_knowledge_qa.service.IntentService;
 import io.github.yuri_hack.rag_knowledge_qa.service.QueryRewriteService;
 import io.github.yuri_hack.rag_knowledge_qa.service.RAGService;
@@ -65,22 +65,15 @@ public class ChatOrchestrationServiceImpl implements ChatOrchestrationService {
     /** 意图路由（原 chatStream 主体）：入参已是与记忆无关的独立问题 */
     private Flux<StreamChatResponse> route(String question) {
         // 1. 检查精确缓存
-        Optional<String> exactAnswer = exactCacheService.getExactAnswer(question);
-        if (exactAnswer.isPresent()) {
-            log.info("精确缓存命中: question={}", question);
-            return StreamUtils.str2StreamChatResponse(exactAnswer.get());
+        Optional<Flux<StreamChatResponse>> exactHit = tryExactCache(question);
+        if (exactHit.isPresent()) {
+            return exactHit.get();
         }
 
         // 2. 检查语义答案缓存
-        Optional<SemanticAnswerCacheHit> semanticAnswerHit = semanticAnswerCacheService.searchSimilarAnswers(question);
-        if (semanticAnswerHit.isPresent()) {
-            log.info("语义答案缓存命中: question={}, 相似度={}", question, semanticAnswerHit.get().getSimilarity());
-
-            // 回写精确缓存
-            String answer = semanticAnswerHit.get().getAnswer();
-            exactCacheService.cacheExactAnswer(question, answer);
-
-            return StreamUtils.str2StreamChatResponse(answer);
+        Optional<Flux<StreamChatResponse>> semanticHit = trySemanticAnswerCache(question);
+        if (semanticHit.isPresent()) {
+            return semanticHit.get();
         }
 
         // 3. 意图识别
@@ -94,5 +87,28 @@ public class ChatOrchestrationServiceImpl implements ChatOrchestrationService {
         } else {
             return adaptiveAnswerService.handleAmbiguousQuery(question);
         }
+    }
+
+    private Optional<Flux<StreamChatResponse>> tryExactCache(String question) {
+        Optional<String> exactAnswer = exactCacheService.getExactAnswer(question);
+        if (exactAnswer.isEmpty()) {
+            return Optional.empty();
+        }
+        log.info("精确缓存命中: question={}", question);
+        return Optional.of(StreamUtils.str2StreamChatResponse(exactAnswer.get()));
+    }
+
+    private Optional<Flux<StreamChatResponse>> trySemanticAnswerCache(String question) {
+        Optional<SemanticAnswerCacheHit> semanticAnswerHit = semanticAnswerCacheService.searchSimilarAnswers(question);
+        if (semanticAnswerHit.isEmpty()) {
+            return Optional.empty();
+        }
+        log.info("语义答案缓存命中: question={}, 相似度={}", question, semanticAnswerHit.get().getSimilarity());
+
+        // 回写精确缓存
+        String answer = semanticAnswerHit.get().getAnswer();
+        exactCacheService.cacheExactAnswer(question, answer);
+
+        return Optional.of(StreamUtils.str2StreamChatResponse(answer));
     }
 }

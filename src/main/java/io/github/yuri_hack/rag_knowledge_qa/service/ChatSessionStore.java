@@ -24,6 +24,7 @@ public class ChatSessionStore {
     public record Turn(String question, String answer) {}
 
     private static final String KEY_PREFIX = "chat:session:";
+    private static final long SECONDS_PER_MINUTE = 60L;
 
     private final JedisPooled jedisPooled;
     private final ObjectMapper objectMapper;
@@ -39,10 +40,10 @@ public class ChatSessionStore {
             return List.of();
         }
         try {
-            List<String> raw = jedisPooled.lrange(KEY_PREFIX + sessionId, 0, -1);
+            List<String> raw = jedisPooled.lrange(keyOf(sessionId), 0, -1);
             List<Turn> turns = new ArrayList<>();
-            for (String s : raw) {
-                turns.add(objectMapper.readValue(s, Turn.class));
+            for (String turnJson : raw) {
+                turns.add(objectMapper.readValue(turnJson, Turn.class));
             }
             return turns;
         } catch (Exception e) {
@@ -57,12 +58,12 @@ public class ChatSessionStore {
             return;
         }
         try {
-            String key = KEY_PREFIX + sessionId;
+            String key = keyOf(sessionId);
             jedisPooled.rpush(key, objectMapper.writeValueAsString(new Turn(question, answer)));
             if (maxTurns > 0) {
                 jedisPooled.ltrim(key, -maxTurns, -1);
             }
-            jedisPooled.expire(key, ttlMinutes * 60L);
+            jedisPooled.expire(key, ttlMinutes * SECONDS_PER_MINUTE);
         } catch (Exception e) {
             log.error("会话追加失败: sessionId={}", sessionId, e);
         }
@@ -71,9 +72,13 @@ public class ChatSessionStore {
     /** 评测/调试用：清除指定会话 */
     public void delete(String sessionId) {
         try {
-            jedisPooled.del(KEY_PREFIX + sessionId);
+            jedisPooled.del(keyOf(sessionId));
         } catch (Exception e) {
             log.warn("会话删除失败: sessionId={}", sessionId, e);
         }
+    }
+
+    private static String keyOf(String sessionId) {
+        return KEY_PREFIX + sessionId;
     }
 }

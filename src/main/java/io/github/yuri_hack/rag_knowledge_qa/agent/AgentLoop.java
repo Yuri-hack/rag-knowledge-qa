@@ -5,6 +5,7 @@ import com.alibaba.dashscope.common.Role;
 import com.alibaba.dashscope.tools.ToolBase;
 import com.alibaba.dashscope.tools.ToolCallBase;
 import com.alibaba.dashscope.tools.ToolCallFunction;
+import com.google.gson.JsonObject;
 import io.github.yuri_hack.rag_knowledge_qa.service.base.AskResult;
 import io.github.yuri_hack.rag_knowledge_qa.service.base.BaseTongYiService;
 import org.springframework.stereotype.Component;
@@ -42,6 +43,12 @@ public class AgentLoop {
     /** 检索预算超限的约定前缀（与 ToolRegistry 失败标记同风格，供 success 判定使用） */
     private static final String SEARCH_BUDGET_MARKER = "[检索预算已用完]";
 
+    /** dashscope tool_call 的类型标识：目前只有 function 一类，非 function 的忽略 */
+    private static final String TOOL_CALL_TYPE_FUNCTION = "function";
+
+    /** trace 中工具结果的摘要长度：只留首行，够定位用哪个工具、成没成即可 */
+    private static final int RESULT_EXCERPT_MAX_CHARS = 80;
+
     public AgentTrace run(String question, String systemPrompt, int maxSteps) {
         maxSteps = Math.min(maxSteps, MAX_STEPS_LIMIT);
         AgentTrace trace = new AgentTrace(question);
@@ -50,9 +57,7 @@ public class AgentLoop {
         // 检索预算计数器（按 tool name 计次）：prompt 里的预算只是约定，这里是强制
         Map<String, Integer> toolUsage = new HashMap<>();
 
-        List<Message> messages = new ArrayList<>();
-        messages.add(Message.builder().role(Role.SYSTEM.getValue()).content(systemPrompt).build());
-        messages.add(Message.builder().role(Role.USER.getValue()).content(question).build());
+        List<Message> messages = initialMessages(systemPrompt, question);
 
         for (int stepNo = 1; stepNo <= maxSteps; stepNo++) {
             AskResult ask = agentService.ask(messages, tools);
@@ -75,41 +80,12 @@ public class AgentLoop {
 
             // 有 tool_call：assistant 消息原样入历史，逐个执行
             messages.add(reply);
-            for (ToolCallBase tc : reply.getToolCalls()) {
-                if (!"function".equals(tc.getType())) continue;
-                ToolCallFunction fn = (ToolCallFunction) tc;
-                String fnName = fn.getFunction().getName();
-                String fnArgs = fn.getFunction().getArguments();
-
-                String result = executeWithSearchBudget(fnName, fnArgs, toolUsage);
-                boolean success = !ToolRegistry.isFailure(result)
-                        && !result.startsWith(SEARCH_BUDGET_MARKER);
-                step.addToolCall(fnName, fnArgs, excerpt(result), success);
-
-                messages.add(Message.builder()
-                        .role("tool")
-                        .content(result)
-                        .toolCallId(tc.getId())
-                        .build());
+            for (ToolCallBase toolCall : reply.getToolCalls()) {
+                executeToolCall(toolCall, step, toolUsage, messages);
             }
         }
         // BC01 修复：步数打满时不再空手终止——用已检索的证据强制作答一次
-        messages.add(Message.builder().role(Role.USER.getValue())
-                .content("已达到检索步数上限。请基于以上已检索到的全部信息直接回答最初的问题，"
-                        + "并明确说明仍有不足之处，不要再调用任何工具。")
-                .build());
-        AskResult forced = agentService.ask(messages, List.of());
-        AgentStep finalStep = trace.addStep(maxSteps + 1, forced.usage());
-        String forcedContent = forced.message().getContent();
-        // 与主循环对称的失败检测：LLM 故障不能记成"步数打满"（排障/评测口径都会被带偏）
-        if (isLlmFailure(forcedContent)) {
-            finalStep.setContent(forcedContent);
-            trace.llmFailed(forcedContent);
-            return trace;
-        }
-        finalStep.setContent(forcedContent);
-        trace.maxStepsReached(forcedContent);
-        return trace;
+        return forceAnswerWithoutTools(messages, trace, maxSteps);
     }
 
     /**
@@ -121,16 +97,13 @@ public class AgentLoop {
         trace.setPromptVersion(AgentPrompts.versionOf(systemPrompt));
 
         AgentStep step1 = trace.addStep(1, null);
-        com.google.gson.JsonObject args = new com.google.gson.JsonObject();
+        JsonObject args = new JsonObject();
         args.addProperty("query", question);
         String result = toolRegistry.execute("search_knowledge", args.toString());
         // 之前用 "!result.startsWith(\"[\")" 的裸前缀猜测——统一走 ToolRegistry 的失败判定
         step1.addToolCall("search_knowledge", question, excerpt(result), !ToolRegistry.isFailure(result));
 
-        List<Message> messages = new ArrayList<>();
-        messages.add(Message.builder().role(Role.SYSTEM.getValue()).content(systemPrompt).build());
-        messages.add(Message.builder().role(Role.USER.getValue())
-                .content(question + "\n\n【检索结果】\n" + result).build());
+        List<Message> messages = initialMessages(systemPrompt, question + "\n\n【检索结果】\n" + result);
 
         AskResult ask = agentService.ask(messages, List.of());
         AgentStep step2 = trace.addStep(2, ask.usage());
@@ -141,6 +114,54 @@ public class AgentLoop {
             trace.llmFailed(content);
         } else {
             trace.complete(content);
+        }
+        return trace;
+    }
+
+    private static List<Message> initialMessages(String systemPrompt, String userContent) {
+        List<Message> messages = new ArrayList<>();
+        messages.add(Message.builder().role(Role.SYSTEM.getValue()).content(systemPrompt).build());
+        messages.add(Message.builder().role(Role.USER.getValue()).content(userContent).build());
+        return messages;
+    }
+
+    /** 执行单条 tool_call（忽略非 function 类型），结果以 tool 角色回传并记入 step */
+    private void executeToolCall(ToolCallBase toolCall, AgentStep step,
+                                 Map<String, Integer> toolUsage, List<Message> messages) {
+        if (!TOOL_CALL_TYPE_FUNCTION.equals(toolCall.getType())) {
+            return;
+        }
+        ToolCallFunction functionCall = (ToolCallFunction) toolCall;
+        String toolName = functionCall.getFunction().getName();
+        String argumentsJson = functionCall.getFunction().getArguments();
+
+        String result = executeWithSearchBudget(toolName, argumentsJson, toolUsage);
+        boolean success = !ToolRegistry.isFailure(result)
+                && !result.startsWith(SEARCH_BUDGET_MARKER);
+        step.addToolCall(toolName, argumentsJson, excerpt(result), success);
+
+        messages.add(Message.builder()
+                .role(Role.TOOL.getValue())
+                .content(result)
+                .toolCallId(toolCall.getId())
+                .build());
+    }
+
+    /** 步数打满后的收尾：摘掉工具，让模型基于已检索证据强制作答一次 */
+    private AgentTrace forceAnswerWithoutTools(List<Message> messages, AgentTrace trace, int maxSteps) {
+        messages.add(Message.builder().role(Role.USER.getValue())
+                .content("已达到检索步数上限。请基于以上已检索到的全部信息直接回答最初的问题，"
+                        + "并明确说明仍有不足之处，不要再调用任何工具。")
+                .build());
+        AskResult forced = agentService.ask(messages, List.of());
+        AgentStep finalStep = trace.addStep(maxSteps + 1, forced.usage());
+        String forcedContent = forced.message().getContent();
+        finalStep.setContent(forcedContent);
+        // 与主循环对称的失败检测：LLM 故障不能记成"步数打满"（排障/评测口径都会被带偏）
+        if (isLlmFailure(forcedContent)) {
+            trace.llmFailed(forcedContent);
+        } else {
+            trace.maxStepsReached(forcedContent);
         }
         return trace;
     }
@@ -167,6 +188,7 @@ public class AgentLoop {
     private static String excerpt(String s) {
         if (s == null) return "(null)";
         String firstLine = s.split("\n")[0];
-        return firstLine.length() > 80 ? firstLine.substring(0, 80) + "…" : firstLine;
+        return firstLine.length() > RESULT_EXCERPT_MAX_CHARS
+                ? firstLine.substring(0, RESULT_EXCERPT_MAX_CHARS) + "…" : firstLine;
     }
 }

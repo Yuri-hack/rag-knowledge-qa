@@ -4,7 +4,6 @@ import com.alibaba.dashscope.tools.FunctionDefinition;
 import com.alibaba.dashscope.tools.ToolBase;
 import com.alibaba.dashscope.tools.ToolFunction;
 import com.alibaba.dashscope.utils.JsonUtils;
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import org.springframework.stereotype.Component;
@@ -29,24 +28,24 @@ public class ToolRegistry {
     private final Map<String, Tool> tools = new LinkedHashMap<>();
 
     public ToolRegistry(List<Tool> toolBeans) {
-        for (Tool t : toolBeans) {
-            if (tools.put(t.name(), t) != null) {
-                throw new IllegalStateException("存在重名工具: " + t.name());
+        for (Tool tool : toolBeans) {
+            if (tools.put(tool.name(), tool) != null) {
+                throw new IllegalStateException("存在重名工具: " + tool.name());
             }
         }
     }
 
     public List<ToolBase> toToolFunctions() {
-        List<ToolBase> list = new ArrayList<>();
-        for (Tool t : tools.values()) {
-            FunctionDefinition fd = FunctionDefinition.builder()
-                    .name(t.name())
-                    .description(t.description())
-                    .parameters(t.parametersSchema())
+        List<ToolBase> toolFunctions = new ArrayList<>();
+        for (Tool tool : tools.values()) {
+            FunctionDefinition definition = FunctionDefinition.builder()
+                    .name(tool.name())
+                    .description(tool.description())
+                    .parameters(tool.parametersSchema())
                     .build();
-            list.add(ToolFunction.builder().function(fd).build());
+            toolFunctions.add(ToolFunction.builder().function(definition).build());
         }
-        return list;
+        return toolFunctions;
     }
 
     /** 判定工具结果是否为失败文本（未注册工具 / 执行失败）。 */
@@ -85,11 +84,11 @@ public class ToolRegistry {
         if (required == null || !required.isJsonArray()) {
             return null;
         }
-        JsonArray names = required.getAsJsonArray();
-        for (JsonElement e : names) {
-            String key = e.getAsString();
-            JsonElement v = arguments.get(key);
-            if (v == null || v.isJsonNull() || (v.isJsonPrimitive() && v.getAsString().isBlank())) {
+        for (JsonElement requiredName : required.getAsJsonArray()) {
+            String key = requiredName.getAsString();
+            JsonElement value = arguments.get(key);
+            if (value == null || value.isJsonNull()
+                    || (value.isJsonPrimitive() && value.getAsString().isBlank())) {
                 return key;
             }
         }
