@@ -14,8 +14,13 @@ import java.util.regex.Pattern;
 @Component
 public class SlidingWindowTextSplitter implements TextSplitter {
 
+    /**
+     * 中英文混合分句：兼容中文句读（。！？；……）与英文句读（.!?）。
+     * 修复前只认 [.!?]，纯中文段落被当成一个"句子"，单句超长时整篇文档落进同一个
+     * chunk（文档级检索伪装成 chunk 级检索——混合查询的"鲁棒召回"实为该 bug 的产物）。
+     */
     private static final Pattern SENTENCE_PATTERN = Pattern.compile(
-        "[^.!?\\s][^.!?]*(?:[.!?](?!['\"]?\\s|$)[^.!?]*)*[.!?]?['\"]?(?=\\s|$)",
+        "[^。！？；.!?\\n]+(?:[。！？；.!?]+[”’」』）)]*|\\n+|$)",
         Pattern.MULTILINE
     );
 
@@ -180,15 +185,10 @@ public class SlidingWindowTextSplitter implements TextSplitter {
      * 文本预处理
      */
     private String preprocessText(String content) {
-        // 移除多余的空白字符
-        String processed = content.replaceAll("\\s+", " ");
-
-        // 标准化换行符
+        // 压平空白但保留换行：换行是表格行/列表项的自然边界，压掉会把多行黏成超长"句子"
+        String processed = content.replaceAll("[ \\t\\x0B\\f]+", " ");
         processed = processed.replaceAll("\\r\\n|\\r", "\n");
-
-        // 移除首尾空白
         processed = processed.trim();
-
         return processed;
     }
 }
