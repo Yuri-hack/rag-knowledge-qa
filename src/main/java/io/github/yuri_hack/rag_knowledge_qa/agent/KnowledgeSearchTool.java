@@ -6,6 +6,7 @@ import io.github.yuri_hack.rag_knowledge_qa.dto.internal.KnowledgeSearchResult;
 import io.github.yuri_hack.rag_knowledge_qa.dto.request.SearchRequest;
 import io.github.yuri_hack.rag_knowledge_qa.knowledge.KnowledgeBaseService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -15,9 +16,12 @@ import java.util.List;
 @RequiredArgsConstructor
 public class KnowledgeSearchTool implements Tool {
 
-    /** 与基线单次检索完全同构（topK=10/ratio=0.5），保证架构对比只剩循环一个变量。 */
-    private static final int TOP_K = 10;
-    private static final double TOP_RATIO = 0.5;
+    /** 检索漏斗参数：默认与基线同构（池 10 → 留 5）；实验可用 rag.agent.search.* 覆盖 */
+    @Value("${rag.agent.search.top-k:10}")
+    private int topK;
+
+    @Value("${rag.agent.search.top-ratio:0.5}")
+    private double topRatio;
 
     // 不做内容截断：曾截 400 字符砍掉尾部数字行，制造基线没有的失败面（已移除）。
 
@@ -53,8 +57,8 @@ public class KnowledgeSearchTool implements Tool {
         String query = arguments.get("query").getAsString();
         SearchRequest request = new SearchRequest();
         request.setQuery(query);
-        request.setTopK(TOP_K);
-        request.setTopRatio(TOP_RATIO);
+        request.setTopK(topK);
+        request.setTopRatio(topRatio);
 
         List<KnowledgeSearchResult> results = knowledgeBaseService.searchKnowledge(request);
 

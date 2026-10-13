@@ -32,9 +32,12 @@ public class TongYiRAGServiceImpl extends BaseTongYiService implements RAGServic
     private final SemanticAnswerCacheService semanticAnswerCacheService;
     private final CacheService cacheService;
 
-    /** A′ 大 K 实验臂开关：RAG 分支检索条数（默认 10），可用 --rag.search.top-k=30 覆盖 */
+    /** 检索漏斗：topK=召回池 N；topRatio 0<x<1 按比例截断，>=1 视为进上下文条数 K（默认 10 → 5） */
     @Value("${rag.search.top-k:10}")
     private int ragSearchTopK;
+
+    @Value("${rag.search.top-ratio:0.5}")
+    private double ragSearchTopRatio;
 
     public TongYiRAGServiceImpl(TongYiBaseConfig tongYiBaseConfig,
                                 PromptConfig promptConfig,
@@ -100,7 +103,7 @@ public class TongYiRAGServiceImpl extends BaseTongYiService implements RAGServic
     private Mono<List<String>> retrieveContexts(String question, AtomicReference<List<Long>> chunkIdsRef) {
         return Mono.fromCallable(() -> {
             List<KnowledgeSearchResult> searchResults = knowledgeBaseService
-                    .searchKnowledge(SearchRequest.of(question, ragSearchTopK));
+                    .searchKnowledge(SearchRequest.of(question, ragSearchTopK, ragSearchTopRatio));
 
             chunkIdsRef.set(searchResults.stream()
                     .map(KnowledgeSearchResult::getChunkId)

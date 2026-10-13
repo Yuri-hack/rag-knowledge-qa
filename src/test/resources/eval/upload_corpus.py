@@ -52,7 +52,7 @@ def restart_app():
     subprocess.Popen(
         ["./mvnw", "-q", "spring-boot:run",
          "-Dspring-boot.run.arguments=--spring.profiles.active=dev --server.port=8080 "
-         "--milvus.collection.recreate=true"],
+         "--spring.devtools.restart.enabled=false --milvus.collection.recreate=true"],
         cwd=HERE.parents[3], stdout=log, stderr=log)
     if not wait_app():
         raise SystemExit("应用启动超时，检查 /tmp/rag-app-rebuild.log")
@@ -91,6 +91,41 @@ def upload(files):
     return registry, fails
 
 
+def verify(expected_docs):
+    """校验入库结果：MySQL 分块数 + Milvus 可检索。返回 (ok, 说明)。"""
+    out = subprocess.run(["docker", "exec", "rag-mysql-dev", "mysql", "-uroot", "-pdev_password",
+                          "rag_db", "-N", "-B", "-e", "SELECT COUNT(*) FROM document_chunk;"],
+                         capture_output=True, text=True)
+    chunks = out.stdout.strip().splitlines()[-1] if out.stdout.strip() else "0"
+    # Milvus 校验：搜一个必然存在的问题
+    import urllib.parse
+    qs = urllib.parse.urlencode({"query": "年假", "topK": 5, "topRatio": 0.0})
+    try:
+        with urllib.request.urlopen(BASE + "/api/knowledge/search?" + qs, timeout=60) as resp:
+            got = len(json.loads(resp.read().decode("utf-8", "ignore")).get("data") or [])
+    except Exception as e:  # noqa: BLE001
+        return False, f"检索校验失败: {e}"
+    if got == 0:
+        return False, f"Milvus 检索返回 0 条（分块数={chunks}）——集合为空，上传可能未落到向量库"
+    return True, f"MySQL 分块={chunks}, Milvus 检索命中={got} 条"
+
+
+def restart_app_clean():
+    """收尾：以 recreate=false 重启，避免长期驻留的实例在后续编译热重启时清空集合。"""
+    subprocess.run(["pkill", "-f", "spring-boot:run"], capture_output=True)
+    time.sleep(3)
+    subprocess.run(["pkill", "-f", "rag-knowledge-qa"], capture_output=True)
+    time.sleep(2)
+    log = open("/tmp/rag-app.log", "w")
+    subprocess.Popen(
+        ["./mvnw", "-q", "spring-boot:run",
+         "-Dspring-boot.run.arguments=--spring.profiles.active=dev --server.port=8080 "
+         "--spring.devtools.restart.enabled=false"],
+        cwd=HERE.parents[3], stdout=log, stderr=log)
+    if not wait_app():
+        raise SystemExit("收尾重启超时")
+
+
 def write_registry(registry):
     out = CORPUS / "gen/uploaded-ids.md"
     with out.open("w") as w:
@@ -109,18 +144,28 @@ def main():
     files = corpus_files()
     print(f"语料文件 {len(files)} 篇")
     if not args.skip_restart:
-        print("[1/4] 重启应用（collection recreate）")
+        print("[1/5] 重启应用（collection recreate）")
         restart_app()
     if not args.skip_truncate:
-        print("[2/4] 清空 MySQL 分块表")
+        print("[2/5] 清空 MySQL 分块表")
         truncate_db()
-    print("[3/4] 上传")
+    print("[3/5] 上传")
     registry, fails = upload(files)
-    print(f"[4/4] 登记 documentId")
-    write_registry(registry)
-    print(f"完成：成功 {len(registry)} / 失败 {len(fails)}")
     if fails:
         print("失败清单:", fails)
+        raise SystemExit(f"有 {len(fails)} 篇上传失败，拒绝继续（KB 不完整）")
+
+    print("[4/5] 校验入库（MySQL 分块 + Milvus 可检索）")
+    ok, msg = verify(len(files))
+    print(f"       {msg}")
+    if not ok:
+        raise SystemExit("入库校验失败：KB 为空或不可检索")
+
+    # 收尾必须以 recreate=false 重启：带 recreate 的实例一旦被 DevTools 热重启就会再次清库
+    print("[5/5] recreate=false 收尾重启 + 登记 documentId")
+    restart_app_clean()
+    write_registry(registry)
+    print(f"完成：成功 {len(registry)} 篇")
 
 
 if __name__ == "__main__":

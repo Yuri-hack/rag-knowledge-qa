@@ -1,0 +1,58 @@
+{
+ "label": "sanity-deep-E10",
+ "endpoint": "baseline",
+ "promptVersion": null,
+ "rewrite": true,
+ "cache": {
+  "disabledDuringRun": true,
+  "flushedKeys": 0,
+  "remainingAfterFlush": 0
+ },
+ "finishedAt": "20261013-172238",
+ "rows": [
+  {
+   "id": "E10",
+   "category": "single_hop",
+   "question": "周末加班的调休比例是多少？",
+   "passed": false,
+   "judgeRequired": false,
+   "infraError": false,
+   "infraRetries": 0,
+   "termination": null,
+   "factHits": [],
+   "factsExpected": [
+    "1:1.5"
+   ],
+   "shouldRetrieve": true,
+   "retrievalHit": false,
+   "retrievedFiles": [],
+   "tokens": 252,
+   "ttftMs": 1057,
+   "totalMs": 1612,
+   "error": null,
+   "answer": "根据现有知识库，我无法确认这个问题的准确信息。建议您联系相关团队或查阅公司文档获取帮助。"
+  },
+  {
+   "id": "R03",
+   "category": "compound_reasoning",
+   "question": "出差时航班取消了，改签费和临时住宿费公司给报吗？自己垫付的钱上限是多少，超过了怎么办？",
+   "passed": false,
+   "judgeRequired": false,
+   "infraError": false,
+   "infraRetries": 0,
+   "termination": null,
+   "factHits": [],
+   "factsExpected": [
+    "5000"
+   ],
+   "shouldRetrieve": true,
+   "retrievalHit": false,
+   "retrievedFiles": [],
+   "tokens": 272,
+   "ttftMs": 1210,
+   "totalMs": 1784,
+   "error": null,
+   "answer": "根据现有知识库，我无法确认这个问题的准确信息。建议您联系相关团队或查阅公司文档获取帮助。"
+  }
+ ]
+}

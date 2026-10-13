@@ -60,6 +60,9 @@ class TurnResult(NamedTuple):
     prompt_version: str | None
     termination: str | None
     infra_retries: int = 0
+    tool_calls: int = 0
+    tool_failures: list = ()      # 失败的 resultExcerpt 片段（agent 臂 debug 事件）
+    infra_suspect: bool = False   # 工具失败由检索/网络基础设施引起（非模型能力问题）
 
 
 def stream_answer(question: str, endpoint: str = "baseline", mode: str = "agent",
@@ -76,6 +79,7 @@ def stream_answer(question: str, endpoint: str = "baseline", mode: str = "agent"
         url = BASE + "/api/chat/rag/stream?" + urllib.parse.urlencode(qs)
     t0 = time.time()
     answer, usage, error, prompt_version, termination = [], None, None, None, None
+    tool_calls, tool_failures = 0, []
     ttft = None
     req = urllib.request.Request(url, headers={"Accept": "text/event-stream"})
     try:
@@ -91,6 +95,12 @@ def stream_answer(question: str, endpoint: str = "baseline", mode: str = "agent"
                     obj = json.loads(payload)
                 except json.JSONDecodeError:
                     continue
+                if obj.get("toolCall"):
+                    tool_calls += 1
+                    excerpt = str(obj.get("resultExcerpt") or "")
+                    # agent 端点 debug 事件：工具失败时记录摘要，用于区分"能力失败"与"检索故障"
+                    if excerpt.startswith("[工具执行失败]") or excerpt.startswith("[未知工具]"):
+                        tool_failures.append(excerpt[:120])
                 if obj.get("content"):
                     answer.append(obj["content"])
                 if obj.get("errorMessage"):
@@ -103,10 +113,19 @@ def stream_answer(question: str, endpoint: str = "baseline", mode: str = "agent"
     except Exception as e:  # noqa: BLE001
         error = f"request failed: {e}"
     total = (time.time() - t0) * 1000
-    return TurnResult("".join(answer), usage, ttft, total, error, prompt_version, termination)
+    return TurnResult("".join(answer), usage, ttft, total, error, prompt_version, termination,
+                      0, tool_calls, tool_failures, any(is_tool_infra_failure(f) for f in tool_failures))
 
 
 LLM_FAILURE_MARKER = "[模型调用失败]"
+
+# 工具失败中属于"检索/网络基础设施"的特征（区别于模型传错参数）
+TOOL_INFRA_PATTERNS = ("StatusRuntimeException", "Milvus", "IOException", "Timeout",
+                       "Connection", "end-of-stream", "UNAVAILABLE", "DEADLINE")
+
+
+def is_tool_infra_failure(excerpt: str) -> bool:
+    return any(p in excerpt for p in TOOL_INFRA_PATTERNS)
 
 
 def is_infra_failure(answer: str, error, termination) -> bool:
@@ -123,9 +142,11 @@ def ask_with_retry(question: str, retries: int = 2, **kw):
     retries_left = retries
     while True:
         r = stream_answer(question, **kw)
-        if not is_infra_failure(r.answer, r.error, r.termination) or retries_left <= 0:
-            return r
-        print(f"    [infra] 基础设施故障（{str(r.error or r.termination)[:80]}），重试")
+        infra = is_infra_failure(r.answer, r.error, r.termination) or r.infra_suspect
+        if not infra or retries_left <= 0:
+            return r._replace(infra_retries=retries - retries_left)
+        detail = r.error or r.termination or (r.tool_failures[0] if r.tool_failures else "")
+        print(f"    [infra] 基础设施故障（{str(detail)[:80]}），重试")
         retries_left -= 1
         time.sleep(2)
     # unreachable
@@ -215,8 +236,8 @@ def main():
         answer = last.answer
         ans_n = norm(answer)
 
-        # infra 故障（重试后仍失败）：不计入能力分母
-        infra = is_infra_failure(last.answer, last.error, last.termination)
+        # infra 故障（重试后仍失败）：不计入能力分母；含检索侧工具故障
+        infra = is_infra_failure(last.answer, last.error, last.termination) or last.infra_suspect
 
         if q.get("shouldRetrieve", True):
             fact_hits = [f for f in facts if f in ans_n]
@@ -242,6 +263,7 @@ def main():
             "passed": passed, "judgeRequired": bool(q.get("judgeRequired")),
             "infraError": infra, "infraRetries": last.infra_retries,
             "termination": last.termination,
+            "toolCalls": last.tool_calls, "toolFailures": list(last.tool_failures),
             "factHits": fact_hits, "factsExpected": facts,
             "shouldRetrieve": q.get("shouldRetrieve", True),
             "retrievalHit": doc_hit, "retrievedFiles": names[:10],
