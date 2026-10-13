@@ -17,10 +17,10 @@ public class AgentStep {
     private final int step;
     private final UsageInfo usage;
 
-    /** 本步模型发出的全部工具调用（size>1 即并行 tool call，D2 观察项） */
+    /** 本步全部工具调用（size>1 即并行） */
     private final List<ToolCallRecord> toolCalls = new ArrayList<>();
 
-    /** 模型的文本输出；终止步为最终答案，工具步通常为 null */
+    /** 模型文本输出；终止步为最终答案 */
     @Setter
     private String content;
 

@@ -10,11 +10,7 @@ import redis.clients.jedis.JedisPooled;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * D6 会话记忆：sessionId → 最近 N 轮问答。
- * Redis list 存储，每个元素一轮（JSON），不做摘要压缩（路线 D6 决策）。
- * 读写失败一律降级为"无记忆"，不炸主链路。
- */
+/** D6 会话记忆：Redis list 存最近 N 轮，读写失败降级为无记忆。 */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -52,7 +48,7 @@ public class ChatSessionStore {
         }
     }
 
-    /** 追加一轮并裁剪到最近 N 轮，刷新 TTL。供 detached 车道调用，异常只记日志。 */
+    /** 追加一轮并裁剪到 N 轮，刷新 TTL */
     public void append(String sessionId, String question, String answer) {
         if (sessionId == null || sessionId.isBlank() || answer == null || answer.isBlank()) {
             return;

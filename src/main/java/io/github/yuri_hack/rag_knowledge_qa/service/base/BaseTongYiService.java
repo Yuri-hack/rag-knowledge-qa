@@ -34,25 +34,17 @@ public abstract class BaseTongYiService {
     protected final TongYiBaseConfig tongYiBaseConfig;
     protected final PromptConfig promptConfig;
 
-    /**
-     * LLM 调用失败的约定前缀（"失败也是输入"协议）：ask() 失败时以此开头构造 assistant 消息，
-     * AgentLoop 依赖它区分"模型故障终止"与"正常终止"。集中成常量避免多处字面量漂移。
-     */
+    /** ask() 失败消息前缀，AgentLoop 依此区分模型故障与正常终止 */
     public static final String LLM_FAILURE_MARKER = "[模型调用失败] ";
 
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
     private static final Duration READ_TIMEOUT = Duration.ofSeconds(60);
     private static final Duration WRITE_TIMEOUT = Duration.ofSeconds(10);
 
-    /**
-     * D2 要求：单次 LLM 调用失败重试一次再放弃——评测数字里不混入单次网络抖动的噪声
-     */
+    /** ask 失败重试一次，避免网络抖动混入评测 */
     private static final int MAX_ASK_ATTEMPTS = 2;
 
-    /**
-     * 超时挂在整个客户端上（ask 与流式共用）：ask 是 agent 循环的串行瓶颈，一次挂起=整轮挂起。
-     * readTimeout 对流式调用按"块间最大间隔"生效，不影响长回答；baseUrl 传 null 沿用 SDK 默认。
-     */
+    /** 客户端级超时（ask 与流式共用）；readTimeout 按块间间隔生效 */
     protected final Generation generation = new Generation(
             Protocol.HTTP.getValue(),
             null,
@@ -79,10 +71,7 @@ public abstract class BaseTongYiService {
         }
     }
 
-    /**
-     * agent 阻塞式调用：带工具 schema，返回原始 assistant 消息（含 toolCalls）。
-     * 注意：enableSearch 显式关闭——它和 tool calling 冲突（D4 风险点）。
-     */
+    /** agent 阻塞调用：带工具 schema，返回原始 assistant 消息 */
     protected AskResult ask(List<Message> messages, List<ToolBase> tools, TongYiModelConfig modelConfig) {
         GenerationParam param = buildAskParam(messages, tools, modelConfig);
         Exception lastError = null;
@@ -116,9 +105,7 @@ public abstract class BaseTongYiService {
                 .maxTokens(modelConfig.getMaxTokens())
                 .temperature(modelConfig.getTemperature())
                 .topP(modelConfig.getTopP())
-                // enableSearch 曾硬编码 false：与 tool calling 并存有冲突风险（D4 记录）。
-                // 现由独立开关 agent-enable-search 控制（默认 false），供 needs_web/联网实验开启；
-                // 不挂 modelConfig——ragModelConfig 与基线流式链路共用，避免误开
+                // 独立开关控制（默认 false），不挂 modelConfig 避免基线误开
                 .enableSearch(Boolean.TRUE.equals(tongYiBaseConfig.getAgentEnableSearch()));
         // 工具列表为空时不发送 tools 字段（空数组部分端点会报错）
         if (tools != null && !tools.isEmpty()) {
@@ -148,10 +135,7 @@ public abstract class BaseTongYiService {
         }
     }
 
-    /**
-     * 缓存回写与 SSE 订阅者解耦（修复原 doOnComplete 方案"客户端中途断连就丢缓存"），
-     * 实现见 {@link io.github.yuri_hack.rag_knowledge_qa.util.ReactorUtils#writeAnswerDetached}。
-     */
+    /** 缓存回写与 SSE 订阅者解耦，见 ReactorUtils#writeAnswerDetached */
     protected Flux<StreamChatResponse> writeCacheDetached(Flux<StreamChatResponse> source,
                                                           Consumer<String> cacheAction) {
         return ReactorUtils.writeAnswerDetached(source, cacheAction);

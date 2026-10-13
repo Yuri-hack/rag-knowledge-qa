@@ -10,27 +10,16 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 
-/**
- * 把现有检索链路包成 agent 工具：
- * searchKnowledge 的 embedding → Milvus → MySQL 补元数据 → rerank → cutOff 全部复用，零改动。
- */
+/** 检索链路（embedding→Milvus→补元数据→rerank→cutOff）的 agent 工具封装，零改动复用。 */
 @Component
 @RequiredArgsConstructor
 public class KnowledgeSearchTool implements Tool {
 
-    /**
-     * 检索配置与基线完全同构（2026-10-12 终态）：topK=10 + topRatio=0.5 —— 同召回宽度、
-     * 同 rerank 竞争池（10 选 5）、同最终 5 条。此前经历两版错误口径（未设 ratio→实得 3 条；
-     * 误设 ratio=1.0→只回 1 条，R03 badcase），见 prompt-changelog 三次订正。
-     * agent 与基线的单次检索自此等价，架构对比的剩余变量只有循环本身。
-     */
+    /** 与基线单次检索完全同构（topK=10/ratio=0.5），保证架构对比只剩循环一个变量。 */
     private static final int TOP_K = 10;
     private static final double TOP_RATIO = 0.5;
 
-    // 内容截断已移除（2026-10-12）：512 字符 chunk 截到 400 仅省 ~6-10% token，
-    // 却系统性砍掉 chunk 尾部的"文字版"数字行，制造基线不存在的失败面；
-    // 上下文控制的大杠杆是条数（topRatio）与搜索预算（AgentLoop 计数器）。
-    // 语料扩大/chunk 加长时再引入"按句边界截断 + offset 分页"（配合 DocumentDetailTool）。
+    // 不做内容截断：曾截 400 字符砍掉尾部数字行，制造基线没有的失败面（已移除）。
 
     private final KnowledgeBaseService knowledgeBaseService;
 

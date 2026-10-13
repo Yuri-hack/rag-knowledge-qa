@@ -9,16 +9,12 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 
-/**
- * 按 documentId 拉取某篇制度的完整内容（全部分块按序拼接）。
- * 存在的理由：C01 类失败——检索命中的片段缺少所需数字/身份标识时，
- * 单靠再次 search 无法保证命中，按文档拉全文是确定性修复路径。
- */
+/** 按 documentId 拉全文：检索片段缺数字时的确定性修复路径。 */
 @Component
 @RequiredArgsConstructor
 public class DocumentDetailTool implements Tool {
 
-    /** 总量截断：长文档（如整本书 287 chunk）不能全量进 context */
+    /** 单窗字符数 */
     private static final int MAX_TOTAL_CHARS = 2400;
 
     private final DocumentChunkRepository chunkRepository;
@@ -47,7 +43,7 @@ public class DocumentDetailTool implements Tool {
     @Override
     public String execute(JsonObject arguments) {
         String documentId = arguments.get("documentId").getAsString();
-        // part 缺省 1；非法值（0/负数/非数字）按 1 处理，由本层兜底而不是抛给上层
+        // part 缺省 1，非法值兜底为 1
         int part = 1;
         try {
             if (arguments.has("part") && !arguments.get("part").isJsonNull()) {
@@ -59,7 +55,6 @@ public class DocumentDetailTool implements Tool {
         if (chunks == null || chunks.isEmpty()) {
             return "[未找到文档] documentId=" + documentId + "（确认 ID 是否来自 search_knowledge 结果）";
         }
-        // 逐窗拼接：每窗最多 MAX_TOTAL_CHARS 字符；窗口数 = ceil(总字符 / MAX_TOTAL_CHARS)
         int window = Math.max(1, part);
         int used = 0;
         StringBuilder sb = new StringBuilder("【文档内容 part ").append(window).append("/】《")

@@ -13,15 +13,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * 工具注册表：收集所有 Tool Bean，负责
- * ① 转成 DashScope 的 tools schema 列表
- * ② 按名字执行工具（参数解析 + required 校验也在这一层），把异常统一转成"失败文本"回传（失败也是输入，不炸链）
- */
+/** 工具注册表：schema 转换 + 按名执行（含 required 校验），异常统一转失败文本回传。 */
 @Component
 public class ToolRegistry {
 
-    /** 工具执行失败的约定前缀：调用方（AgentLoop/评测）依赖它判定工具是否失败 */
+    /** 失败约定前缀，供调用方判定 */
     public static final String TOOL_FAILURE_MARKER = "[工具执行失败] ";
     public static final String UNKNOWN_TOOL_MARKER = "[未知工具] ";
 
@@ -66,8 +62,7 @@ public class ToolRegistry {
         } catch (Exception e) {
             return TOOL_FAILURE_MARKER + "参数不是合法 JSON: " + argumentsJson;
         }
-        // 按 schema 的 required 声明先做存在性校验：与其让工具内部 NPE
-        // （模型只会收到 "NullPointerException: null"，无从修正），不如明确告知缺哪个参数
+        // required 前置校验：明确告知缺参，优于 NPE 失败文本
         String missing = firstMissingRequired(tool, arguments);
         if (missing != null) {
             return TOOL_FAILURE_MARKER + "缺少必填参数 " + missing + "（收到: " + argumentsJson + "）";

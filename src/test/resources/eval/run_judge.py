@@ -1,24 +1,6 @@
 #!/usr/bin/env python3
-"""LLM-as-judge 终评 runner（可复跑）——judge prompt 内嵌冻结。
-
-背景：四臂对比（four-arm-comparison-20261008.md）的 judge 原为外部一次性执行，
-prompt 未入库，换台机器不可复现。本脚本把 judge 落成代码：
-prompt 冻结在下方 JUDGE_SYSTEM_PROMPT（v1，2026-10-12），温度 0，改动即口径重置。
-
-用法：
-  export DASHSCOPE_API_KEY=sk-...
-  python3 run_judge.py --results results/arm-C-agent-v021-20261008-161604.json
-  python3 run_judge.py --results results/xxx.json --rows all          # 默认只评 judgeRequired 题
-  python3 run_judge.py --results results/xxx.json --ids S01,MA01
-  python3 run_judge.py --results results/xxx.json --model qwen-max   # 本账号可用（qwen3-max 不存在，404）
-
-输出：results/<输入文件名>-judged-<时间戳>.json（每题 verdict/reason + 汇总）
-
-prompt 版本：
-  v1（2026-10-12 上午）仅通用判据，**未曾使用、无任何结果产出**；
-  v2（2026-10-12）= v1 + 范围外问题判据（needs_web 类）：judge 不知道语料边界，v1 下 W01
-  这类"引用真实世界知识作答"会被误判 CORRECT，与评测设计（拒答/联网/幻觉三分类）相悖。
-"""
+"""LLM-as-judge 终评 runner。judge prompt 冻结在 JUDGE_SYSTEM_PROMPT（v2：v1+范围外判据），温度 0。
+用法：export DASHSCOPE_API_KEY=... && python3 run_judge.py --results results/xxx.json [--rows all] [--ids S01] [--model qwen-max]"""
 import argparse
 import json
 import os
@@ -122,8 +104,7 @@ def main():
     judged = []
     for r in rows:
         answer = r.get("answer") or ""
-        # 基础设施故障的"回答"是错误文本，judge 按要点对照必然判 WRONG——
-        # 会把网络故障变成"能力差"。标 INFRA 不计分，也不消耗 judge 调用。
+        # infra 故障文本标 INFRA，不调 judge 不计分
         if r.get("infraError") or answer.startswith(LLM_FAILURE_MARKER):
             verdict, reason, err = "INFRA", "模型调用/请求故障，不计入能力口径", None
         else:

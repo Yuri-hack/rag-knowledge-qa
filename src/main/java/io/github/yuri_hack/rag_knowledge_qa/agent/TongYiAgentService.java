@@ -10,10 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
-/**
- * BaseTongYiService 的 agent 用具体子类：
- * LLM 调用仍收口在基类（项目事实：generate/generateStream/ask 唯一出入口）。
- */
+/** BaseTongYiService 的 agent 子类：LLM 调用收口在基类。 */
 @Service
 public class TongYiAgentService extends BaseTongYiService {
 
@@ -21,7 +18,7 @@ public class TongYiAgentService extends BaseTongYiService {
         super(tongYiBaseConfig, promptConfig);
     }
 
-    /** agent 循环专用：阻塞调用 + 工具 schema，默认用 ragModelConfig */
+    /** 阻塞调用 + 工具 schema，默认 ragModelConfig */
     public AskResult ask(List<Message> messages, List<ToolBase> tools) {
         return ask(messages, tools, tongYiBaseConfig.getRagModelConfig());
     }

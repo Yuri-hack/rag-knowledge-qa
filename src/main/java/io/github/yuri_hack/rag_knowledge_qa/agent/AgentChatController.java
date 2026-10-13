@@ -12,12 +12,9 @@ import reactor.core.publisher.FluxSink;
 import reactor.core.scheduler.Schedulers;
 
 /**
- * D4：agent 问答端点。阻塞循环跑完后伪流式返回（D7 方案 A）。
- *
+ * agent 问答端点（阻塞循环 + 伪流式返回）。
  * GET /api/chat/agent?question=...&mode=agent|singleshot&maxSteps=6&debug=true
- *
- * SSE 事件格式与 /api/chat/rag/stream 对齐（data 行为 JSON，含 content/finished/usage），
- * 另有 trace 事件（finished=false，无 content）供 UI/调试读取每步工具轨迹。
+ * SSE 格式与 /api/chat/rag/stream 对齐，debug 时附每步工具轨迹事件。
  */
 @RestController
 @RequestMapping("/api/chat")
@@ -29,7 +26,7 @@ public class AgentChatController {
         this.agentLoop = agentLoop;
     }
 
-    /** mode 白名单：此前拼错的 mode（如 "singlesho"）会静默落入 agent 臂——评测臂选错在数字上不可见 */
+    /** mode 白名单：拼错静默落入 agent 臂，评测数字不可见 */
     private static final String MODE_AGENT = "agent";
     private static final String MODE_SINGLESHOT = "singleshot";
 
@@ -43,8 +40,7 @@ public class AgentChatController {
                     "非法 mode: " + mode + "（仅支持 " + MODE_AGENT + "/" + MODE_SINGLESHOT + "）")));
         }
         return Flux.<ServerSentEvent<String>>create(sink -> {
-            // BC02 补记（2026-10-12）：此处曾残留 SYSTEM_V03，与回滚决策不一致，已修正——
-            // 对外 endpoint 与实验结论必须同 prompt，版本可经 trace.promptVersion 校验
+            // 与实验结论同 prompt，版本经 trace.promptVersion 校验（BC02）
             AgentTrace trace = MODE_SINGLESHOT.equals(mode)
                     ? agentLoop.runSingleShot(question, AgentPrompts.SYSTEM_V02)
                     : agentLoop.run(question, AgentPrompts.SYSTEM_V02, maxSteps);

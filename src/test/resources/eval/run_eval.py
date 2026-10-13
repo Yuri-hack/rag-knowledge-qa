@@ -1,20 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-D3 评测 runner（迭代层：关键词命中判定）
-
-用法：
-  python3 run_eval.py --label baseline-qwen-plus            # 全量跑（关缓存 + flush）
-  python3 run_eval.py --label agent-v01 --endpoint agent    # agent 端点
-  python3 run_eval.py --no-flush --label quick              # 不动缓存（仅调试用）
-
-口径（与 qa.json meta 一致）：
-  - 评测期间通过 /api/admin/cache/toggle 关闭三级缓存（跑完自动恢复），
-    并 flush rag:* 兜底；flush 后二次扫描校验，失败直接中止，防串轮污染
-  - fact 匹配：答案与 expectedFacts 均去空白后做子串匹配，全部命中才 pass
-  - shouldRetrieve=false 的题：拒答/兜底启发式判定（不做事实匹配）
-  - 检索命中：/api/knowledge/search topK=10 的 fileName 中出现 expectDocKeyword
-"""
+"""评测 runner（关键词命中层）。缓存自动关/flush/恢复；fact 去空白子串匹配；infra 故障重试并剔除分母。"""
 import argparse
 import atexit
 import json
@@ -44,7 +30,7 @@ def redis_cli(*args: str) -> str:
 
 
 def flush_cache() -> dict:
-    """清空 rag:* 并二次扫描校验，失败抛异常中止评测。返回 flush 报告。"""
+    """清空 rag:* 并二次校验，失败中止。"""
     keys = [k for k in redis_cli("--scan", "--pattern", "rag:*").splitlines() if k.strip()]
     for k in keys:
         redis_cli("DEL", k)
@@ -65,9 +51,7 @@ def set_cache_enabled(enabled: bool) -> dict:
 
 def stream_answer(question: str, endpoint: str = "baseline", mode: str = "agent",
                   timeout: int = 120, session: str = None, rewrite: bool = True):
-    """调问答端点，返回 (answer, usage, ttft_ms, total_ms, error, prompt_version, termination)。
-    session 非空时带 sessionId（D6 多轮）+ rewrite 开关。
-    termination 来自 agent 端点 finished 事件的 termination 字段（LLM_FAILURE=基础设施故障）。"""
+    """调问答端点；session 非空时带 sessionId + rewrite（D6 多轮）。"""
     if endpoint in ("agent", "singleshot"):
         qs = {"question": question, "mode": mode, "maxSteps": 6, "debug": "true"}
         url = BASE + "/api/chat/agent?" + urllib.parse.urlencode(qs)
@@ -113,10 +97,7 @@ LLM_FAILURE_MARKER = "[模型调用失败]"
 
 
 def is_infra_failure(answer: str, error, termination) -> bool:
-    """区分"能力失败"与"基础设施失败"：
-    模型调用故障（网络/限流/服务端 5xx）与问答能力无关，计入 pass 率会把
-    "agent 单题多次串行 LLM 调用、故障暴露面 ≈ N 倍于单发基线"变成"agent 更笨"
-    ——arm-C 的 single_hop 9/10 vs 基线 10/10，事后核查 E01 全部是一次 IOException。"""
+    """能力失败 vs 基础设施失败（网络/限流/5xx）。"""
     if termination == "LLM_FAILURE":
         return True
     if error and "request failed" in str(error):
@@ -125,8 +106,7 @@ def is_infra_failure(answer: str, error, termination) -> bool:
 
 
 def ask_with_retry(question: str, retries: int = 2, **kw):
-    """基础设施失败自动重试（能力失败不重试）。返回 (answer, usage, ttft, total, error,
-    prompt_version, termination, infra_retries)——重试次数进结果，可审计。"""
+    """infra 失败自动重试（能力失败不重试），重试次数入结果。"""
     infra_retries = 0
     while True:
         r = stream_answer(question, **kw)
@@ -220,12 +200,11 @@ def main():
             turn_answers.append(answer)
             turn_tokens.append((usage or {}).get("totalTokens") or 0)
             if session_id and i < len(turns) - 1:
-                time.sleep(1.0)  # 等上一轮的 detached 会话追加落库（毫秒级竞态，真实用户间隔秒级不受影响）
+                time.sleep(1.0)  # 等 detached 会话追加落库
         answer = turn_answers[-1]
         ans_n = norm(answer)
 
-        # 基础设施故障（重试后仍失败）：不计入能力 pass 率，单独成列。
-        # 混在一起的教训：arm-C 的 E01 = 一次 IOException 被记成"agent 答错简单题"。
+        # infra 故障（重试后仍失败）：不计入能力分母
         infra = is_infra_failure(answer, error, termination)
 
         if q.get("shouldRetrieve", True):
@@ -233,7 +212,7 @@ def main():
             if infra:
                 passed = None
             elif q.get("judgeRequired"):
-                passed = None  # 关键词层已证明会假阳性，交终评 judge
+                passed = None  # 关键词层假阳性，交 judge
             else:
                 passed = bool(facts) and len(fact_hits) == len(facts)
             names, err2 = search_files(turns[-1])

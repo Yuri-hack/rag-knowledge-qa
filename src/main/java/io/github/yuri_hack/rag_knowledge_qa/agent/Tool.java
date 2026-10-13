@@ -10,12 +10,12 @@ public interface Tool {
 
     String name();
 
-    /** 工具描述：措辞直接决定模型选不选、怎么调（见 docs/prompt-changelog.md）。 */
+    /** 工具描述：措辞决定模型选不选、怎么调 */
     String description();
 
     /** JSON Schema（gson JsonObject），声明参数结构。 */
     JsonObject parametersSchema();
 
-    /** 执行工具。抛出的异常由 ToolRegistry 统一转成失败文本回传（失败也是输入）。 */
+    /** 执行；异常由 ToolRegistry 转失败文本回传 */
     String execute(JsonObject arguments) throws Exception;
 }

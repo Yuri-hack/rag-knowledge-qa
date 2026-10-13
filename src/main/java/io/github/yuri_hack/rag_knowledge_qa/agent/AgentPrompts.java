@@ -5,7 +5,7 @@ package io.github.yuri_hack.rag_knowledge_qa.agent;
  */
 public final class AgentPrompts {
 
-    /** search_knowledge 检索预算——与 SYSTEM_V02 规则 3 的"最多 3 次"对应，由 AgentLoop 代码层强制（BC01 后续） */
+    /** search_knowledge 检索预算，与 SYSTEM_V02 规则 3 对应，代码层强制 */
     public static final int SEARCH_BUDGET = 3;
 
     /** v0.2：加入检索后自检规则（覆盖性/冲突/完整性）——D4 自评重试的核心 */
@@ -47,10 +47,7 @@ public final class AgentPrompts {
             + "需确认适用范围/年份/完整条款时使用）；get_document_detail 不占用检索预算，按需调用；\n"
             + "6. 检索预算用尽仍无法覆盖问题的，基于已有信息作答并说明知识库中未找到的部分，不要编造。";
 
-    /**
-     * Prompt 文本 → 版本标识。trace/评测结果必须携带它：BC02 的教训是引用漂移
-     * （endpoint 跑了已归档的 prompt）在数字层面完全不可见，只能靠显式记录发现。
-     */
+    /** Prompt → 版本标识，trace 必须携带（防引用漂移不可见，BC02 教训）。 */
     public static String versionOf(String prompt) {
         if (SYSTEM_V02.equals(prompt)) return "v0.2.1";
         if (SYSTEM_V03.equals(prompt)) return "v0.3";

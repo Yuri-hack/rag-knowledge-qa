@@ -7,8 +7,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
- * D2 Demo：AgentLoop 正式循环的三题验收
- * ① 单跳+计算 ② 范围定向（昨日发现的基线失败案例）③ 双主题（观察多步/并行 tool call）
+ * AgentLoop 三题验收 demo。
  * 运行：./mvnw spring-boot:run -Dspring-boot.run.arguments="--agent.demo=true --server.port=8081"
  */
 @Component
@@ -17,7 +16,7 @@ public class AgentDemoRunner implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(AgentDemoRunner.class);
 
-    /** 回滚决策：v0.3 实测规则被执行但目标题无改善、成本约 2 倍，回滚 v0.2.1（V03 保留作档案）。见 BC02 */
+    /** v0.3 无改善且成本翻倍，回滚 v0.2.1（见 BC02） */
     private static final String SYSTEM_PROMPT = AgentPrompts.SYSTEM_V02;
 
     private static final int MAX_STEPS = 6;

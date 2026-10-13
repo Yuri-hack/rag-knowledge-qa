@@ -15,16 +15,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * 正式 agent 循环（D2）：
- *   messages = [system, user]
- *   循环（≤ maxSteps）:
- *     ask(messages, tools) → 无 tool_call 则终止并返回答案
- *                          → 有 tool_call 则执行、结果以 tool 角色回传、进入下一步
- *
- * 边界处理：步数上限防绕圈 / 工具失败由 ToolRegistry 转文本回传 /
- *          LLM 调用失败标记 LLM_FAILURE 终止 / 每步 usage 进 AgentTrace。
- */
+/** Agent 主循环：ask → 有 tool_call 执行并回传后继续，无则终止；失败/步数上限/usage 记入 AgentTrace。 */
 @Component
 public class AgentLoop {
 
@@ -36,17 +27,16 @@ public class AgentLoop {
         this.toolRegistry = toolRegistry;
     }
 
-    /** maxSteps 硬上限：暴露在 HTTP 参数上的成本开关，必须有界（检索预算只限 search_knowledge，
-     *  get_document_detail 无预算，无上限时一次请求可拖起数千次 LLM 调用） */
+    /** maxSteps 硬上限（HTTP 可传参，必须有界） */
     private static final int MAX_STEPS_LIMIT = 10;
 
-    /** 检索预算超限的约定前缀（与 ToolRegistry 失败标记同风格，供 success 判定使用） */
+    /** 检索预算超限前缀 */
     private static final String SEARCH_BUDGET_MARKER = "[检索预算已用完]";
 
-    /** dashscope tool_call 的类型标识：目前只有 function 一类，非 function 的忽略 */
+    /** dashscope 仅 function 一种 tool_call */
     private static final String TOOL_CALL_TYPE_FUNCTION = "function";
 
-    /** trace 中工具结果的摘要长度：只留首行，够定位用哪个工具、成没成即可 */
+    /** 工具结果摘要长度 */
     private static final int RESULT_EXCERPT_MAX_CHARS = 80;
 
     public AgentTrace run(String question, String systemPrompt, int maxSteps) {
@@ -54,7 +44,7 @@ public class AgentLoop {
         AgentTrace trace = new AgentTrace(question);
         trace.setPromptVersion(AgentPrompts.versionOf(systemPrompt));
         List<ToolBase> tools = toolRegistry.toToolFunctions();
-        // 检索预算计数器（按 tool name 计次）：prompt 里的预算只是约定，这里是强制
+        // 检索预算计数器：prompt 约定在此强制
         Map<String, Integer> toolUsage = new HashMap<>();
 
         List<Message> messages = initialMessages(systemPrompt, question);
@@ -64,7 +54,7 @@ public class AgentLoop {
             Message reply = ask.message();
             AgentStep step = trace.addStep(stepNo, ask.usage());
 
-            // LLM 调用失败（ask 已把异常吞成失败文本）：标记终止，不无限重试
+            // LLM 失败：终止，不重试
             if (reply.getToolCalls() == null && isLlmFailure(reply.getContent())) {
                 step.setContent(reply.getContent());
                 trace.llmFailed(reply.getContent());
@@ -78,20 +68,17 @@ public class AgentLoop {
                 return trace;
             }
 
-            // 有 tool_call：assistant 消息原样入历史，逐个执行
+            // 有 tool_call：入历史并逐个执行
             messages.add(reply);
             for (ToolCallBase toolCall : reply.getToolCalls()) {
                 executeToolCall(toolCall, step, toolUsage, messages);
             }
         }
-        // BC01 修复：步数打满时不再空手终止——用已检索的证据强制作答一次
+        // 步数打满：强制作答一次
         return forceAnswerWithoutTools(messages, trace, maxSteps);
     }
 
-    /**
-     * B 臂（单次 RAG + 同 prompt）：强制一次检索（与 agent 相同的工具与 topK），然后无工具生成。
-     * 用于隔离"提示词/检索质量"与"多轮动作空间"的贡献。
-     */
+    /** B 臂对照：单次检索 + 同 prompt 无工具生成，隔离提示词与循环的贡献。 */
     public AgentTrace runSingleShot(String question, String systemPrompt) {
         AgentTrace trace = new AgentTrace(question);
         trace.setPromptVersion(AgentPrompts.versionOf(systemPrompt));
@@ -100,7 +87,6 @@ public class AgentLoop {
         JsonObject args = new JsonObject();
         args.addProperty("query", question);
         String result = toolRegistry.execute("search_knowledge", args.toString());
-        // 之前用 "!result.startsWith(\"[\")" 的裸前缀猜测——统一走 ToolRegistry 的失败判定
         step1.addToolCall("search_knowledge", question, excerpt(result), !ToolRegistry.isFailure(result));
 
         List<Message> messages = initialMessages(systemPrompt, question + "\n\n【检索结果】\n" + result);
@@ -109,7 +95,7 @@ public class AgentLoop {
         AgentStep step2 = trace.addStep(2, ask.usage());
         String content = ask.message().getContent();
         step2.setContent(content);
-        // 与主循环对称：LLM 故障不能记成 COMPLETED（否则 B 臂评测会把故障当答案对）
+        // LLM 故障不记 COMPLETED
         if (isLlmFailure(content)) {
             trace.llmFailed(content);
         } else {
@@ -125,7 +111,7 @@ public class AgentLoop {
         return messages;
     }
 
-    /** 执行单条 tool_call（忽略非 function 类型），结果以 tool 角色回传并记入 step */
+    /** 执行单条 tool_call，结果以 tool 角色回传 */
     private void executeToolCall(ToolCallBase toolCall, AgentStep step,
                                  Map<String, Integer> toolUsage, List<Message> messages) {
         if (!TOOL_CALL_TYPE_FUNCTION.equals(toolCall.getType())) {
@@ -147,7 +133,7 @@ public class AgentLoop {
                 .build());
     }
 
-    /** 步数打满后的收尾：摘掉工具，让模型基于已检索证据强制作答一次 */
+    /** 步数打满：摘掉工具强制作答 */
     private AgentTrace forceAnswerWithoutTools(List<Message> messages, AgentTrace trace, int maxSteps) {
         messages.add(Message.builder().role(Role.USER.getValue())
                 .content("已达到检索步数上限。请基于以上已检索到的全部信息直接回答最初的问题，"
@@ -157,7 +143,7 @@ public class AgentLoop {
         AgentStep finalStep = trace.addStep(maxSteps + 1, forced.usage());
         String forcedContent = forced.message().getContent();
         finalStep.setContent(forcedContent);
-        // 与主循环对称的失败检测：LLM 故障不能记成"步数打满"（排障/评测口径都会被带偏）
+        // LLM 故障不记 MAX_STEPS
         if (isLlmFailure(forcedContent)) {
             trace.llmFailed(forcedContent);
         } else {
@@ -166,11 +152,7 @@ public class AgentLoop {
         return trace;
     }
 
-    /**
-     * BC01 预算显式化的工程化收尾：prompt 的"search_knowledge 最多 3 次"只是约定，
-     * 这里按 tool name 计数强制执行——超预算不执行检索，返回固定文本让模型
-     * 按"失败即输入"基于已有信息作答。
-     */
+    /** search_knowledge 按次计数强制预算，超出返回固定文本。 */
     private String executeWithSearchBudget(String name, String argumentsJson, Map<String, Integer> usage) {
         if ("search_knowledge".equals(name)
                 && usage.merge(name, 1, Integer::sum) > AgentPrompts.SEARCH_BUDGET) {

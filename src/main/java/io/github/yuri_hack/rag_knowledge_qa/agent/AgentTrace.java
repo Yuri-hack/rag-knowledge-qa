@@ -8,10 +8,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
 
-/**
- * 一次 agent 会话的完整轨迹：每步的 usage、工具调用、终止原因、总成本。
- * 这是 D3 成本指标和 D4 badcases 的数据来源。
- */
+/** 一次 agent 会话轨迹：逐步 usage/工具调用/终止原因/总成本。 */
 @Getter
 public class AgentTrace {
 
