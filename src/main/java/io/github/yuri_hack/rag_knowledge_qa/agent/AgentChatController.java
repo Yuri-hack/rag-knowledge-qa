@@ -42,8 +42,8 @@ public class AgentChatController {
         return Flux.<ServerSentEvent<String>>create(sink -> {
             // 与实验结论同 prompt，版本经 trace.promptVersion 校验（BC02）
             AgentTrace trace = MODE_SINGLESHOT.equals(mode)
-                    ? agentLoop.runSingleShot(question, AgentPrompts.SYSTEM_V02)
-                    : agentLoop.run(question, AgentPrompts.SYSTEM_V02, maxSteps);
+                    ? agentLoop.runSingleShot(question, AgentPrompts.SYSTEM_V04)
+                    : agentLoop.run(question, AgentPrompts.SYSTEM_V04, maxSteps);
 
             if (debug) {
                 emitToolCallEvents(sink, trace);

@@ -97,9 +97,9 @@ public abstract class BaseTongYiService {
     }
 
     private GenerationParam buildAskParam(List<Message> messages, List<ToolBase> tools, TongYiModelConfig modelConfig) {
-        // 独立开关控制（默认 false），不挂 modelConfig 避免基线误开
-        var builder = baseParam(messages, modelConfig)
-                .enableSearch(Boolean.TRUE.equals(tongYiBaseConfig.getAgentEnableSearch()));
+        // 循环请求一律不开 enableSearch：它与 tools 同请求互斥（静默失效，见 prompt-changelog v0.4）。
+        // 联网搜索需求走 WebSearchTool 的无 tools 子调用（webSearchModelConfig）
+        var builder = baseParam(messages, modelConfig);
         // 工具列表为空时不发送 tools 字段（空数组部分端点会报错）
         if (tools != null && !tools.isEmpty()) {
             builder.tools(tools);

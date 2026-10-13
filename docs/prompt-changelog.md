@@ -80,3 +80,30 @@ v0.2 的自检规则能发现问题但缺两把“检索工具”：
 **结论**：检索预算不是越大越好——6 轮证据 + 3 份全文把 context 推到稀释区，
 生成端抓不住重点（lost-in-the-middle）。**预算 4 为当前最优**；预算-质量曲线呈倒 U。
 **遗留**：MA01 的 5/5 需要"总部加班调休"维度的定向检索而非全文拉取——记录待 v0.4 或放弃（边际收益低）。
+
+## 2026-10-13 · v0.4（联网搜索工具化：web_search）
+
+**背景**：D4 时 `enableSearch` + tool calling 同请求实测静默失效（silent no-op，W01 实验）——两套协议互斥：
+enableSearch 是 provider 在服务端替你跑内建搜索循环，tools 是把循环控制权交给客户端，同开时 tools 优先、enableSearch 被静默丢弃。
+结论：联网搜索不能作为参数挂在循环模型上，必须做成 Tool 由模型自主选择。
+
+**web_search description 设计动机**（措辞即工具选择，D1 教训）：
+1. "仅用于公司外部的公开事实问题；内部制度一律用 search_knowledge"——与 search_knowledge 划清分工边界，防止模型拿联网搜索代替知识库检索（成本 + 答案不可控）
+2. "仅当 search_knowledge 明确没有、且属于公开事实时才使用"——把触发条件写成可判定的前置状态，降低过触发
+3. 子调用 system prompt 约束"只答该问题、搜不到如实说"——防止搜索摘要膨胀回灌主循环（D2 工具结果堆积问题）
+
+**prompt v0.4 = v0.2.1 + 规则 6**（不动 v0.2.1/v0.3 原文，保历史评测可比）：
+- 规则 6 声明 web_search 的适用面（互联网公开事实）与预算（最多 2 次）
+- 预算代码层强制：AgentLoop 预算表从 search_knowledge 单工具推广为按工具预算表（search_knowledge=3，web_search=2——单次含搜索费，收紧）
+
+**架构说明**：WebSearchTool.execute 内部调一次开 enableSearch 的单发 LLM 调用（不带 tools，无互斥）；
+`tongyi.web-search-model-config` 独立模型槽位（qwen-plus / maxTokens 1000 / enable-search=true），不挂 ragModelConfig 避免基线误开。
+老流水线 `/api/chat/rag/stream` 的 enableSearch 配置不受影响（单发链路无冲突）。
+**边界规律**：enableSearch 只在「无 tools」的请求里生效，与 tools 同请求必被静默丢弃——D4 实验（ask 带 tools + enableSearch = no-op）与本实现（tool 内无 tools 单发 = 生效）拼出完整结论。据此删除 D4 遗留开关 `tongyi.agent-enable-search`（含 yml 行与 buildAskParam 引用），避免与 webSearchModelConfig 并存误导。
+
+**AgentChatController / AgentDemoRunner 切换到 v0.4**——agent 端点现在暴露 web_search，eval 重跑时 promptVersion 会记为 v0.4，与 v0.2.1 历史跑数不可直接比。
+
+**待验证**（评测重跑时观察）：
+1. 内部制度题是否 zero 触发 web_search（过触发 = description 边界失效）
+2. no_retrieval / needsWeb 题是否从"诚实拒答"升级为"转联网答对"
+3. web_search 预算 2 是否足够（公开事实类一般 1 次）

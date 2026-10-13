@@ -15,6 +15,6 @@ public class TongYiBaseConfig {
     private TongYiModelConfig normalizeModelConfig;
     private TongYiModelConfig adaptiveModelConfig;
     private TongYiModelConfig rewriteModelConfig;
-    /** agent 循环内是否开联网搜索（与 tool calling 并存有冲突风险，默认必须为 false，实验开关） */
-    private Boolean agentEnableSearch;
+    /** WebSearchTool 子调用专用：enableSearch 必须为 true（与 tool_calls 互斥，只能单发使用） */
+    private TongYiModelConfig webSearchModelConfig;
 }

@@ -16,8 +16,8 @@ public class AgentDemoRunner implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(AgentDemoRunner.class);
 
-    /** v0.3 无改善且成本翻倍，回滚 v0.2.1（见 BC02） */
-    private static final String SYSTEM_PROMPT = AgentPrompts.SYSTEM_V02;
+    /** v0.3 无改善且成本翻倍，回滚 v0.2.1（见 BC02）；v0.4 在其上加联网搜索工具规则 */
+    private static final String SYSTEM_PROMPT = AgentPrompts.SYSTEM_V04;
 
     private static final int MAX_STEPS = 6;
 

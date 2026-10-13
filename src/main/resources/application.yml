@@ -32,7 +32,7 @@ aliyun:
 
 tongyi:
   api-key: ${ALIYUN_API_KEY}  # 在环境变量中配置阿里云apiKey
-  agent-enable-search: false  # agent 循环联网搜索开关（与 tool calling 并存会静默失效，见 docs/agent-优势区实验.md；联网应做成 Tool）
+  # agent 循环内不开联网搜索：enableSearch 与 tools 同请求互斥（静默失效，见 docs/prompt-changelog.md v0.4）；联网搜索走 WebSearchTool 子调用
   rag-model-config:
     model: qwen-plus
     max-tokens: 2000
@@ -69,6 +69,13 @@ tongyi:
     temperature: 0.0
     top-p: 0.8
     enable-search: false
+  # WebSearchTool 子调用：单发开联网搜索（与 tool_calls 互斥，不能挂到循环模型上）
+  web-search-model-config:
+    model: qwen-plus
+    max-tokens: 1000
+    temperature: 0.0
+    top-p: 0.8
+    enable-search: true
 
 # RAG相关配置
 rag:

@@ -33,6 +33,11 @@ public class AgentLoop {
     /** 检索预算超限前缀 */
     private static final String SEARCH_BUDGET_MARKER = "[检索预算已用完]";
 
+    /** 按次计费工具的预算表（prompt 约定在此强制）；web_search 含搜索费，预算收紧 */
+    private static final Map<String, Integer> TOOL_BUDGETS = Map.of(
+            KnowledgeSearchTool.NAME, AgentPrompts.SEARCH_BUDGET,
+            WebSearchTool.NAME, AgentPrompts.WEB_SEARCH_BUDGET);
+
     /** dashscope 仅 function 一种 tool_call */
     private static final String TOOL_CALL_TYPE_FUNCTION = "function";
 
@@ -156,11 +161,11 @@ public class AgentLoop {
         return trace;
     }
 
-    /** search_knowledge 按次计数强制预算，超出返回固定文本。 */
+    /** 按次计费工具计数强制预算，超出返回固定文本。 */
     private String executeWithSearchBudget(String name, String argumentsJson, Map<String, Integer> usage) {
-        if (KnowledgeSearchTool.NAME.equals(name)
-                && usage.merge(name, 1, Integer::sum) > AgentPrompts.SEARCH_BUDGET) {
-            return SEARCH_BUDGET_MARKER + " search_knowledge 已调用满 " + AgentPrompts.SEARCH_BUDGET + " 次，"
+        Integer budget = TOOL_BUDGETS.get(name);
+        if (budget != null && usage.merge(name, 1, Integer::sum) > budget) {
+            return SEARCH_BUDGET_MARKER + " " + name + " 已调用满 " + budget + " 次，"
                     + "请基于已获得的全部信息直接回答最初的问题，并说明仍有不足之处，不要再调用任何工具。";
         }
         return toolRegistry.execute(name, argumentsJson);

@@ -28,13 +28,15 @@ class AgentLoopTest {
 
     private TongYiAgentService agentService;
     private AtomicInteger searchCalls;
+    private AtomicInteger webCalls;
     private AgentLoop agentLoop;
 
     @BeforeEach
     void setUp() {
         agentService = mock(TongYiAgentService.class);
         searchCalls = new AtomicInteger();
-        agentLoop = new AgentLoop(agentService, new ToolRegistry(List.of(searchStub())));
+        webCalls = new AtomicInteger();
+        agentLoop = new AgentLoop(agentService, new ToolRegistry(List.of(searchStub(), webStub())));
     }
 
     private Tool searchStub() {
@@ -63,6 +65,32 @@ class AgentLoopTest {
         };
     }
 
+    private Tool webStub() {
+        return new Tool() {
+            @Override
+            public String name() {
+                return WebSearchTool.NAME;
+            }
+
+            @Override
+            public String description() {
+                return "stub";
+            }
+
+            @Override
+            public JsonObject parametersSchema() {
+                return JsonUtils.parseString("{\"type\":\"object\",\"properties\":{"
+                        + "\"query\":{\"type\":\"string\"}},\"required\":[\"query\"]}").getAsJsonObject();
+            }
+
+            @Override
+            public String execute(JsonObject arguments) {
+                webCalls.incrementAndGet();
+                return "【联网搜索结果】stub";
+            }
+        };
+    }
+
     private static AskResult answer(String content) {
         return new AskResult(
                 Message.builder().role(Role.ASSISTANT.getValue()).content(content).build(),
@@ -70,12 +98,20 @@ class AgentLoopTest {
     }
 
     private static AskResult searchToolCall() {
+        return toolCall(KnowledgeSearchTool.NAME, "{\"query\":\"P5 年假\"}");
+    }
+
+    private static AskResult webToolCall() {
+        return toolCall(WebSearchTool.NAME, "{\"query\":\"北京 天气\"}");
+    }
+
+    private static AskResult toolCall(String name, String arguments) {
         ToolCallFunction toolCall = new ToolCallFunction();
         toolCall.setId("call_1");
         toolCall.setType("function");
         ToolCallFunction.CallFunction function = toolCall.new CallFunction();
-        function.setName(KnowledgeSearchTool.NAME);
-        function.setArguments("{\"query\":\"P5 年假\"}");
+        function.setName(name);
+        function.setArguments(arguments);
         toolCall.setFunction(function);
         return new AskResult(
                 Message.builder().role(Role.ASSISTANT.getValue()).toolCalls(List.of(toolCall)).build(),
@@ -127,6 +163,30 @@ class AgentLoopTest {
                 .filter(record -> !record.isSuccess())
                 .count();
         assertThat(failedCalls).isEqualTo(6 - AgentPrompts.SEARCH_BUDGET);
+    }
+
+    @Test
+    void 联网搜索预算按次强制超出后不再执行工具() {
+        when(agentService.ask(anyList(), anyList()))
+                .thenReturn(webToolCall())
+                .thenReturn(webToolCall())
+                .thenReturn(webToolCall())
+                .thenReturn(webToolCall())
+                .thenReturn(webToolCall())
+                .thenReturn(webToolCall())
+                .thenReturn(answer("强制收尾答案"));
+
+        AgentTrace trace = agentLoop.run("q", AgentPrompts.SYSTEM_V04, 6);
+
+        assertThat(webCalls).hasValue(AgentPrompts.WEB_SEARCH_BUDGET);
+        assertThat(searchCalls).hasValue(0);
+        assertThat(trace.getTerminationReason()).isEqualTo(AgentTrace.TerminationReason.MAX_STEPS_REACHED);
+        long failedCalls = trace.getSteps().stream()
+                .flatMap(step -> step.getToolCalls().stream())
+                .filter(record -> !record.isSuccess())
+                .count();
+        assertThat(failedCalls).isEqualTo(6 - AgentPrompts.WEB_SEARCH_BUDGET);
+        assertThat(trace.getPromptVersion()).isEqualTo("v0.4");
     }
 
     @Test
