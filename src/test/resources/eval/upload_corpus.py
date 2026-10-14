@@ -28,7 +28,8 @@ DB = ["docker", "exec", "rag-mysql-dev", "mysql", "-uroot", "-pdev_password", "r
 def corpus_files():
     files = (sorted(CORPUS.glob("[0-9][0-9]-*.md"))
              + sorted(CORPUS.glob("gen/split/*.md"))
-             + sorted(CORPUS.glob("gen/batch3/*.md")))
+             + sorted(CORPUS.glob("gen/batch3/*.md"))
+             + sorted(CORPUS.glob("gen/batch4/*.md")))
     return files
 
 

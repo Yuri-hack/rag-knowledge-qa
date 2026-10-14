@@ -1,0 +1,46 @@
+{
+ "label": "bp-A-baseline",
+ "endpoint": "baseline",
+ "promptVersion": null,
+ "rewrite": true,
+ "cache": {
+  "disabledDuringRun": true,
+  "flushedKeys": 0,
+  "remainingAfterFlush": 0
+ },
+ "finishedAt": "20261014-114215",
+ "rows": [
+  {
+   "id": "BP01",
+   "category": "blind_pointer",
+   "question": "出差路上航班取消了，公司让我先垫钱，最多能垫多少？超了要谁同意？",
+   "passed": true,
+   "judgeRequired": false,
+   "infraError": false,
+   "infraRetries": 0,
+   "termination": null,
+   "toolCalls": 0,
+   "toolFailures": [],
+   "factHits": [
+    "5000"
+   ],
+   "factsExpected": [
+    "5000"
+   ],
+   "shouldRetrieve": true,
+   "retrievalHit": false,
+   "retrievedFiles": [
+    "03-差旅费报销制度",
+    "03-差旅费报销制度",
+    "04-紧急费用审批绿色通道管理办法",
+    "13-差旅预订管理规定",
+    "G02-差旅费用报销与审批制度"
+   ],
+   "tokens": 1493,
+   "ttftMs": 1378,
+   "totalMs": 4373,
+   "error": null,
+   "answer": "根据《紧急费用审批绿色通道管理办法》（云启科技 · 2025 年 7 月发布，2026 年 1 月复审有效）：\n\n- **单人单次垫付上限为 5000 元**；  \n- 若预计垫付金额**超过 5000 元**，须在事前**电话获得部门总监同意**后方可垫付。\n\n该规定适用于因**航班取消、延误**产生的改签、临时住宿等紧急费用，且不适用《差旅费报销制度》的常规标准与时限，统一按绿色通道执行。"
+  }
+ ]
+}
