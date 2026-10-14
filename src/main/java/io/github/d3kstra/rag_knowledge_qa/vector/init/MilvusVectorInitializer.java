@@ -2,45 +2,54 @@ package io.github.d3kstra.rag_knowledge_qa.vector.init;
 
 import io.github.d3kstra.rag_knowledge_qa.config.MilvusConfig;
 import io.github.d3kstra.rag_knowledge_qa.exception.VectorStorageException;
-import io.milvus.client.MilvusServiceClient;
-import io.milvus.grpc.DataType;
-import io.milvus.param.IndexType;
-import io.milvus.param.MetricType;
-import io.milvus.param.R;
-import io.milvus.param.RpcStatus;
-import io.milvus.param.collection.CreateCollectionParam;
-import io.milvus.param.collection.DropCollectionParam;
-import io.milvus.param.collection.FieldType;
-import io.milvus.param.collection.HasCollectionParam;
-import io.milvus.param.collection.LoadCollectionParam;
-import io.milvus.param.index.CreateIndexParam;
+import io.milvus.common.clientenum.FunctionType;
+import io.milvus.v2.client.MilvusClientV2;
+import io.milvus.v2.common.DataType;
+import io.milvus.v2.common.IndexParam;
+import io.milvus.v2.service.collection.request.AddFieldReq;
+import io.milvus.v2.service.collection.request.CreateCollectionReq;
+import io.milvus.v2.service.collection.request.DropCollectionReq;
+import io.milvus.v2.service.collection.request.HasCollectionReq;
+import io.milvus.v2.service.collection.request.LoadCollectionReq;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+import java.util.Map;
+
 /**
- * milvus数据库初始化器
+ * milvus数据库初始化器（Milvus 2.5 MilvusClientV2）
  * ！！！ 生产环境不建议代码创建 ！！！
+ *
+ * schema 在原有字段（chunk_id 主键 / vector / document_id / chunk_index）基础上新增：
+ *  - text：VARCHAR，开启 chinese analyzer（中文子词召回的决定变量，见 docs/milvus-2.5-upgrade-checklist.md）；
+ *  - sparse：SPARSE_FLOAT_VECTOR，由 BM25 Function 从 text 生成；
+ * 索引：vector → HNSW/IP（嵌入已 L2 归一化，IP 等价余弦）；sparse → SPARSE_INVERTED_INDEX/BM25。
  */
 @Slf4j
 @RequiredArgsConstructor
 @Component
 public class MilvusVectorInitializer {
 
-    private final MilvusServiceClient milvusClient;
+    private final MilvusClientV2 milvusClient;
     private final MilvusConfig milvusConfig;
 
     private static final String VECTOR_FIELD = "vector";
     private static final String DOCUMENT_ID_FIELD = "document_id";
     private static final String CHUNK_INDEX_FIELD = "chunk_index";
     private static final String CHUNK_ID_FIELD = "chunk_id";
+    private static final String TEXT_FIELD = "text";
+    private static final String SPARSE_FIELD = "sparse";
+    private static final String BM25_FUNCTION = "bm25_text";
 
+    /** 分块上限 512 字符，留余量 */
+    private static final int TEXT_MAX_LENGTH = 4096;
 
     @PostConstruct
     public void init() {
         if (milvusConfig.isRecreate()) {
-            // 删除重建
             recreateCollection();
         } else {
             initializeCollection();
@@ -52,23 +61,18 @@ public class MilvusVectorInitializer {
      */
     private void initializeCollection() {
         try {
-            // 检查集合是否存在
-            HasCollectionParam hasCollectionParam = HasCollectionParam.newBuilder()
-                    .withCollectionName(milvusConfig.getCollectionName())
-                    .build();
-            R<Boolean> hasCollection = milvusClient.hasCollection(hasCollectionParam);
+            Boolean exists = milvusClient.hasCollection(HasCollectionReq.builder()
+                    .collectionName(milvusConfig.getCollectionName())
+                    .build());
 
-            if (!hasCollection.getData()) {
+            if (!Boolean.TRUE.equals(exists)) {
                 createCollection();
-                createIndex();
                 log.info("Milvus集合创建完成: {}", milvusConfig.getCollectionName());
             } else {
                 log.info("Milvus集合已存在: {}", milvusConfig.getCollectionName());
             }
 
-            // 加载集合到内存
             loadCollection();
-
         } catch (Exception e) {
             log.error("初始化Milvus集合失败", e);
             throw new VectorStorageException("Milvus集合初始化失败", e);
@@ -80,14 +84,11 @@ public class MilvusVectorInitializer {
      */
     private void recreateCollection() {
         try {
-            // 删除现有集合
-            DropCollectionParam dropParam = DropCollectionParam.newBuilder()
-                    .withCollectionName(milvusConfig.getCollectionName())
-                    .build();
-            milvusClient.dropCollection(dropParam);
+            milvusClient.dropCollection(DropCollectionReq.builder()
+                    .collectionName(milvusConfig.getCollectionName())
+                    .build());
             log.info("已删除集合: {}", milvusConfig.getCollectionName());
 
-            // 重新初始化
             initializeCollection();
             log.info("已重新创建集合: {}", milvusConfig.getCollectionName());
         } catch (Exception e) {
@@ -97,51 +98,74 @@ public class MilvusVectorInitializer {
     }
 
     /**
-     * 创建集合
+     * 创建集合（含 schema、BM25 Function 与索引；2.5 的 createCollection 支持同时建索引）
      */
     private void createCollection() {
         try {
-            // 定义字段
-            FieldType vectorField = FieldType.newBuilder()
-                    .withName(VECTOR_FIELD)
-                    .withDataType(DataType.FloatVector)
-                    .withDimension(milvusConfig.getVectorDimension())
-                    .build();
+            CreateCollectionReq.CollectionSchema schema = milvusClient.createSchema();
 
-            FieldType documentIdField = FieldType.newBuilder()
-                    .withName(DOCUMENT_ID_FIELD)
-                    .withDataType(DataType.VarChar)
-                    .withMaxLength(64)
-                    .build();
+            schema.addField(AddFieldReq.builder()
+                    .fieldName(CHUNK_ID_FIELD)
+                    .dataType(DataType.Int64)          // 对应 DocumentChunk 的 Long id
+                    .isPrimaryKey(true)
+                    .autoID(false)
+                    .build());
 
-            FieldType chunkIndexField = FieldType.newBuilder()
-                    .withName(CHUNK_INDEX_FIELD)
-                    .withDataType(DataType.Int32)
-                    .build();
+            schema.addField(AddFieldReq.builder()
+                    .fieldName(VECTOR_FIELD)
+                    .dataType(DataType.FloatVector)
+                    .dimension(milvusConfig.getVectorDimension())
+                    .build());
 
-            FieldType chunkIdField = FieldType.newBuilder()
-                    .withName(CHUNK_ID_FIELD)
-                    .withDataType(DataType.Int64) // 对应 DocumentChunk 的 Long id
-                    .withPrimaryKey(true)
-                    .withAutoID(false)
-                    .build();
+            schema.addField(AddFieldReq.builder()
+                    .fieldName(DOCUMENT_ID_FIELD)
+                    .dataType(DataType.VarChar)
+                    .maxLength(64)
+                    .build());
 
-            // 创建集合参数
-            CreateCollectionParam createCollectionParam = CreateCollectionParam.newBuilder()
-                    .withCollectionName(milvusConfig.getCollectionName())
-                    .withDescription("知识库文档块向量存储")
-                    .withShardsNum(2)
-                    .addFieldType(vectorField)
-                    .addFieldType(documentIdField)
-                    .addFieldType(chunkIndexField)
-                    .addFieldType(chunkIdField)
-                    .build();
+            schema.addField(AddFieldReq.builder()
+                    .fieldName(CHUNK_INDEX_FIELD)
+                    .dataType(DataType.Int32)
+                    .build());
 
-            R<RpcStatus> response = milvusClient.createCollection(createCollectionParam);
+            // BM25 输入字段：必须开 analyzer，中文用 chinese（默认 analyzer 对中文子词召回失败）
+            schema.addField(AddFieldReq.builder()
+                    .fieldName(TEXT_FIELD)
+                    .dataType(DataType.VarChar)
+                    .maxLength(TEXT_MAX_LENGTH)
+                    .enableAnalyzer(true)
+                    .analyzerParams(Map.of("type", "chinese"))
+                    .build());
 
-            if (response.getStatus() != R.Status.Success.getCode()) {
-                throw new VectorStorageException("创建集合失败: " + response.getMessage());
-            }
+            schema.addField(AddFieldReq.builder()
+                    .fieldName(SPARSE_FIELD)
+                    .dataType(DataType.SparseFloatVector)
+                    .build());
+
+            // BM25 Function：text → sparse（输出字段索引 metric 必须是 BM25）
+            schema.addFunction(CreateCollectionReq.Function.builder()
+                    .name(BM25_FUNCTION)
+                    .functionType(FunctionType.BM25)
+                    .inputFieldNames(List.of(TEXT_FIELD))
+                    .outputFieldNames(List.of(SPARSE_FIELD))
+                    .build());
+
+            milvusClient.createCollection(CreateCollectionReq.builder()
+                    .collectionName(milvusConfig.getCollectionName())
+                    .description("知识库文档块向量存储（稠密+BM25稀疏）")
+                    .collectionSchema(schema)
+                    .indexParams(List.of(
+                            IndexParam.builder()
+                                    .fieldName(VECTOR_FIELD)
+                                    .indexType(IndexParam.IndexType.HNSW)
+                                    .metricType(IndexParam.MetricType.IP)
+                                    .build(),
+                            IndexParam.builder()
+                                    .fieldName(SPARSE_FIELD)
+                                    .indexType(IndexParam.IndexType.SPARSE_INVERTED_INDEX)
+                                    .metricType(IndexParam.MetricType.BM25)
+                                    .build()))
+                    .build());
 
         } catch (Exception e) {
             log.error("创建Milvus集合失败", e);
@@ -150,53 +174,16 @@ public class MilvusVectorInitializer {
     }
 
     /**
-     * 创建索引
-     */
-    private void createIndex() {
-        try {
-            IndexType indexType = IndexType.IVF_FLAT;
-            String indexParam = "{\"nlist\":%d}".formatted(milvusConfig.getVectorDimension());
-
-            CreateIndexParam createIndexParam = CreateIndexParam.newBuilder()
-                    .withCollectionName(milvusConfig.getCollectionName())
-                    .withFieldName(VECTOR_FIELD)
-                    .withIndexType(indexType)
-                    .withMetricType(MetricType.COSINE)
-                    .withExtraParam(indexParam)
-                    .withSyncMode(Boolean.TRUE)
-                    .build();
-
-            R<RpcStatus> response = milvusClient.createIndex(createIndexParam);
-
-            if (response.getStatus() != R.Status.Success.getCode()) {
-                throw new VectorStorageException("创建索引失败: " + response.getMessage());
-            }
-
-        } catch (Exception e) {
-            log.error("创建Milvus索引失败", e);
-            throw new VectorStorageException("创建索引失败", e);
-        }
-    }
-
-    /**
      * 加载集合到内存
      */
     private void loadCollection() {
         try {
-            LoadCollectionParam loadCollectionParam = LoadCollectionParam.newBuilder()
-                    .withCollectionName(milvusConfig.getCollectionName())
-                    .build();
-
-            R<RpcStatus> response = milvusClient.loadCollection(loadCollectionParam);
-
-            if (response.getStatus() != R.Status.Success.getCode()) {
-                throw new VectorStorageException("加载集合失败: " + response.getMessage());
-            }
-
+            milvusClient.loadCollection(LoadCollectionReq.builder()
+                    .collectionName(milvusConfig.getCollectionName())
+                    .build());
         } catch (Exception e) {
             log.error("加载Milvus集合失败", e);
             throw new VectorStorageException("加载集合失败", e);
         }
     }
-
 }

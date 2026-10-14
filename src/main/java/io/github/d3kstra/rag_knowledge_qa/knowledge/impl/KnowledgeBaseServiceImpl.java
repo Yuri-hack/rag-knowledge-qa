@@ -71,6 +71,16 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
     @Value("${rag.search.hybrid.rescue-count:3}")
     private int lexicalRescueCount;
 
+    /**
+     * 混合检索通道实现：
+     *  - milvus（默认）：Milvus 2.5 服务端原生混合检索（稠密 + BM25 稀疏 + RRF），不做应用侧融合；
+     *  - local：进程内 BM25 词法通道 + 应用侧合并/提权/兜底（保留用于 A/B 对照）。
+     */
+    @Value("${rag.search.hybrid.provider:milvus}")
+    private String hybridProvider;
+
+    private static final String PROVIDER_MILVUS = "milvus";
+
     public String uploadAndProcessFile(FileUploadRequest request) {
         // 自增id作主键 documentId索引业务id
         String documentId = generateDocumentId();
@@ -118,16 +128,20 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
             // 生成查询向量
             float[] queryVector = embeddingService.getEmbedding(request.getQuery());
 
-            // 在Milvus中搜索相似向量
-            List<VectorSearchResult> vectorResults = vectorStoreService.searchSimilarVectors(queryVector, request.getTopK());
+            boolean useMilvusHybrid = hybridEnabled && PROVIDER_MILVUS.equalsIgnoreCase(hybridProvider);
+
+            // 召回：milvus 通道走服务端混合检索（dense+sparse+RRF）；local 通道走纯稠密后应用侧融合
+            List<VectorSearchResult> vectorResults = useMilvusHybrid
+                    ? vectorStoreService.hybridSearch(queryVector, request.getQuery(), request.getTopK())
+                    : vectorStoreService.searchSimilarVectors(queryVector, request.getTopK());
 
             // 获取完整的文档块信息
             List<KnowledgeSearchResult> knowledgeResults = enrichSearchResults(vectorResults);
 
-            // 词法通道合并（混合检索）：稠密对无意义 token（资产编号等）无法精确匹配，靠 BM25 补齐
+            // local 通道专用：进程内 BM25 词法合并（稠密对无意义 token 无法精确匹配，靠词法补齐）
             HybridCandidates hybrid = HybridCandidates.empty();
             List<KnowledgeSearchResult> candidates = knowledgeResults;
-            if (hybridEnabled) {
+            if (hybridEnabled && !useMilvusHybrid) {
                 hybrid = mergeCandidates(knowledgeResults,
                         lexicalIndexService.search(request.getQuery(), lexicalTopK));
                 candidates = hybrid.merged();
@@ -136,9 +150,12 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
             // 应用重排序
             List<KnowledgeSearchResult> rerankedSearchResults = applyReranking(request.getQuery(), candidates);
 
-            // 动态截断结果 → 精确匹配优先 → 补充被挤出的词法命中
+            // 动态截断结果
             List<KnowledgeSearchResult> cut = dynamicCutOff(rerankedSearchResults, request.getTopRatio());
-            return rescueExactMatches(cut, rerankedSearchResults, hybrid);
+            // 精确匹配优先/兜底是 local 通道专用（milvus 通道的精确编号命中由服务端 BM25 路负责）
+            return hybridEnabled && !useMilvusHybrid
+                    ? rescueExactMatches(cut, rerankedSearchResults, hybrid)
+                    : cut;
         } catch (Exception e) {
             log.error("知识检索失败: {}", request.getQuery(), e);
             throw new RuntimeException("知识检索失败: " + e.getMessage(), e);

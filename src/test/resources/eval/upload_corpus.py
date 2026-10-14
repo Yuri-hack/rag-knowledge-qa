@@ -13,15 +13,20 @@
 """
 import argparse
 import json
+import os
 import subprocess
 import time
 import urllib.request
+import threading
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 HERE = Path(__file__).parent
 CORPUS = HERE / "corpus"
 BASE = "http://localhost:8080"
+MILVUS_PORT = os.environ.get("MILVUS_PORT", "19530")
+UPLOAD_WORKERS = int(os.environ.get("UPLOAD_WORKERS", "4"))  # 可指向另一实例（如升级验证用 19531）
 DB = ["docker", "exec", "rag-mysql-dev", "mysql", "-uroot", "-pdev_password", "rag_db", "-e"]
 
 
@@ -54,7 +59,8 @@ def restart_app():
     subprocess.Popen(
         ["./mvnw", "-q", "spring-boot:run",
          "-Dspring-boot.run.arguments=--spring.profiles.active=dev --server.port=8080 "
-         "--spring.devtools.restart.enabled=false --milvus.collection.recreate=true"],
+         "--spring.devtools.restart.enabled=false --milvus.port=%s --milvus.collection.recreate=true "
+         "--rag.vector.flush-on-insert=false" % MILVUS_PORT],
         cwd=HERE.parents[3], stdout=log, stderr=log)
     if not wait_app():
         raise SystemExit("应用启动超时，检查 /tmp/rag-app-rebuild.log")
@@ -66,30 +72,42 @@ def truncate_db():
                    capture_output=True, text=True)
 
 
-def upload(files):
-    registry, fails = [], []
-    for i, p in enumerate(files):
-        boundary = uuid.uuid4().hex
-        body = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"fileName\"\r\n\r\n{p.stem}\r\n").encode()
-        body += (f"--{boundary}\r\nContent-Disposition: form-data; name=\"description\"\r\n\r\n"
-                 f"corpus-rebuild\r\n").encode()
-        body += (f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{p.name}\"\r\n"
-                 f"Content-Type: text/markdown\r\n\r\n").encode() + p.read_bytes() + f"\r\n--{boundary}--\r\n".encode()
-        req = urllib.request.Request(BASE + "/api/knowledge/upload", data=body,
-                                     headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
-        try:
-            with urllib.request.urlopen(req, timeout=120) as resp:
-                r = json.loads(resp.read().decode("utf-8", "ignore"))
-            if r.get("success"):
-                registry.append((p.stem, r.get("data")))
-            else:
-                fails.append(p.name)
-        except Exception as e:  # noqa: BLE001
-            fails.append(f"{p.name}: {str(e)[:40]}")
-            time.sleep(3)
-        if (i + 1) % 20 == 0:
-            print(f"  {i + 1}/{len(files)}")
-        time.sleep(0.3)
+def upload_one(p):
+    """单篇上传；返回 (fileName, documentId, error)。"""
+    boundary = uuid.uuid4().hex
+    body = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"fileName\"\r\n\r\n{p.stem}\r\n").encode()
+    body += (f"--{boundary}\r\nContent-Disposition: form-data; name=\"description\"\r\n\r\n"
+             f"corpus-rebuild\r\n").encode()
+    body += (f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{p.name}\"\r\n"
+             f"Content-Type: text/markdown\r\n\r\n").encode() + p.read_bytes() + f"\r\n--{boundary}--\r\n".encode()
+    req = urllib.request.Request(BASE + "/api/knowledge/upload", data=body,
+                                 headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
+    try:
+        with urllib.request.urlopen(req, timeout=300) as resp:
+            r = json.loads(resp.read().decode("utf-8", "ignore"))
+        if r.get("success"):
+            return (p.stem, r.get("data"), None)
+        return (p.stem, None, p.name)          # API 明确失败
+    except Exception as e:  # noqa: BLE001
+        return (p.stem, None, f"{p.name}: {str(e)[:60]}")
+
+
+def upload(files, workers=None):
+    """并发上传：每篇含 分句+逐块 embedding+Milvus 插入+flush，串行约 10s/篇；
+    并发后受 Embedding API 与 Milvus flush 影响，实测可缩短数倍。"""
+    workers = workers or UPLOAD_WORKERS
+    registry, fails, done = [], [], 0
+    lock = threading.Lock()
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        for stem, doc_id, err in pool.map(upload_one, files):
+            with lock:
+                done += 1
+                if err:
+                    fails.append(err)
+                else:
+                    registry.append((stem, doc_id))
+                if done % 20 == 0:
+                    print(f"  {done}/{len(files)}")
     return registry, fails
 
 
@@ -122,7 +140,7 @@ def restart_app_clean():
     subprocess.Popen(
         ["./mvnw", "-q", "spring-boot:run",
          "-Dspring-boot.run.arguments=--spring.profiles.active=dev --server.port=8080 "
-         "--spring.devtools.restart.enabled=false"],
+         "--spring.devtools.restart.enabled=false --milvus.port=%s" % MILVUS_PORT],
         cwd=HERE.parents[3], stdout=log, stderr=log)
     if not wait_app():
         raise SystemExit("收尾重启超时")
@@ -153,6 +171,16 @@ def main():
         truncate_db()
     print("[3/5] 上传")
     registry, fails = upload(files)
+    # 批量入库期间关闭了逐篇 flush：收尾显式 flush 一次，确保 growing segment 落盘（耐久性等价）
+    try:
+        req = urllib.request.Request(
+            "http://localhost:%s/v2/vectordb/collections/flush" % MILVUS_PORT,
+            data=json.dumps({"collectionName": "knowledge_base", "dbName": "default"}).encode(),
+            headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=180) as resp:
+            print("  收尾 flush:", resp.read().decode()[:120])
+    except Exception as e:  # noqa: BLE001
+        print("  收尾 flush 失败（不影响检索，但耐久性需留意）:", str(e)[:80])
     if fails:
         print("失败清单:", fails)
         raise SystemExit(f"有 {len(fails)} 篇上传失败，拒绝继续（KB 不完整）")

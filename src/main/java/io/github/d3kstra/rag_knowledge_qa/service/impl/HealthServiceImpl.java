@@ -1,9 +1,9 @@
 package io.github.d3kstra.rag_knowledge_qa.service.impl;
 
+import io.github.d3kstra.rag_knowledge_qa.config.MilvusConfig;
 import io.github.d3kstra.rag_knowledge_qa.service.HealthService;
-import io.milvus.client.MilvusServiceClient;
-import io.milvus.param.R;
-import io.milvus.param.collection.HasCollectionParam;
+import io.milvus.v2.client.MilvusClientV2;
+import io.milvus.v2.service.collection.request.DescribeCollectionReq;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -16,20 +16,20 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class HealthServiceImpl implements HealthService {
 
-    private final MilvusServiceClient milvusClient;
+    private final MilvusClientV2 milvusClient;
+
+    private final MilvusConfig milvusConfig;
 
     private final RedisTemplate<String, String> redisTemplate;
 
     @Override
     public Boolean isMilvusConnected() {
         try {
-            // 这里我们使用hasCollection来检查一个不存在的集合，如果连接正常，会返回一个包含状态码的响应
-            R<Boolean> response = milvusClient.hasCollection(HasCollectionParam.newBuilder()
-                    .withCollectionName("non_existent_collection")
+            // describeCollection 成功即说明连接正常且目标集合存在（V2 下没有 R 状态码包装，异常即失败）
+            milvusClient.describeCollection(DescribeCollectionReq.builder()
+                    .collectionName(milvusConfig.getCollectionName())
                     .build());
-
-            // 如果响应状态为成功，说明连接正常
-            return response.getStatus() == R.Status.Success.getCode();
+            return true;
         } catch (Exception e) {
             log.error("Milvus连接测试失败", e);
             return false;

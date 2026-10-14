@@ -82,6 +82,17 @@
             <version>${milvus.version}</version>
         </dependency>
 
+        <!--
+          fastjson：rerank/AliyunRerankerServiceImpl 在用。
+          milvus-sdk-java 2.3.4 曾把它作为传递依赖带入，2.5.4 已移除，故在此显式声明
+          （版本对齐 2.3.4 曾传递的 1.2.83，避免升级 SDK 时行为漂移）。
+        -->
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>fastjson</artifactId>
+            <version>1.2.83</version>
+        </dependency>
+
         <!-- ========== 阿里云服务 ========== -->
         <!-- 阿里云核心SDK -->
         <dependency>
@@ -233,7 +244,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <!-- 第三方依赖版本 -->
-        <milvus.version>2.3.4</milvus.version>
+        <milvus.version>2.5.4</milvus.version>
         <aliyun.sdk.version>2.0.24</aliyun.sdk.version>
         <pdfbox.version>2.0.29</pdfbox.version>
         <poi.version>5.2.4</poi.version>

@@ -156,8 +156,9 @@ public class TongYiRAGServiceImpl extends BaseTongYiService implements RAGServic
             List<String> labeled = new ArrayList<>();
             int seq = 1;
             for (KnowledgeSearchResult r : searchResults) {
-                labeled.add(String.format("【%d】《%s》 chunk#%s 相似度=%.2f%n%s",
-                        seq++, r.getFileName(), r.getChunkIndex(), r.getSimilarity(), r.getContent()));
+                // 同 KnowledgeSearchTool：不暴露语义不可比的内部分数
+                labeled.add(String.format("【%d】《%s》 chunk#%s%n%s",
+                        seq++, r.getFileName(), r.getChunkIndex(), r.getContent()));
             }
             return labeled;
         });

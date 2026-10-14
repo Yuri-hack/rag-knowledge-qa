@@ -113,6 +113,8 @@ rag:
     top-ratio: 10
     hybrid:
       enabled: true
+      # milvus = 服务端原生混合检索(稠密+BM25稀疏+RRF)；local = 进程内 BM25 通道(A/B 对照用)
+      provider: milvus
       lexical-top-k: 20
       max-candidates: 50
       rescue-count: 3
