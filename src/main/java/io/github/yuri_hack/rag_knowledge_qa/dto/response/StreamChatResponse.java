@@ -6,7 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
-@Builder
+@Builder(toBuilder = true)
 @NoArgsConstructor
 @AllArgsConstructor
 public class StreamChatResponse {
@@ -14,4 +14,7 @@ public class StreamChatResponse {
     private boolean finished;
     private String errorMessage;
     private UsageInfo usage;
+
+    /** prompt 版本（prompt 文本哈希，防止 prompt 漂移在数字层面不可见——BC02 教训） */
+    private String promptVersion;
 }

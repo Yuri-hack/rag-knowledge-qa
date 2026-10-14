@@ -10,8 +10,7 @@
   "multiTurn": "D6 已并入（2026-10-12）：MT01-MT07 共 7 条，turns 数组=逐轮对话（末轮计分），sessionId 由 eval runner 按运行+题目隔离生成；--rewrite false 为可证伪对照模式",
   "denominatorRule": "关键词层分母 = 总题数 - judgeRequired题(S01)；2026-10-12 晚追加 R01-R03（compound_reasoning）后：总题数 36，关键词层分母 **35**，facts 覆盖分母 50。passed=null 不计入；S01 只由 LLM-as-judge 终评、单独报告。引用分部口径时必须标注题集范围（如四臂对比=当时的 26 题/分母25），禁止跨版本混写。教训：四臂表曾并存 24/26、24/25、25/26 三种写法（2026-10-12 订正）",
   "agentZoneNote": "AZ 系列（2026-10-12）：基于检索探针设计的 agent 候选优势区——宽聚合(证据宽度>5 chunk 上下文)/片段缺失→文档补全/冲突显式化/未覆盖交叉的诚实处理。 AZ03-05 为 judgeRequired。",
-  "agentZone2Note": "AZ06-08（2026-10-12，chunking 修复后）：语料重建揭示中文分句 bug（原 splitter 只认英文句读，纯中文整篇 1 chunk=文档级检索假象）；修复后 chunk 级检索成立，slot 容量机制（所需 chunk>5 槽位）成为与 embedding 强弱无关的稳定差异区。出题纪律：每题先用题目原文探针验证 B 必缺证据、C 分组查询必可解。",
-  "blindPointerNote": "BP 系列（2026-10-14）：盲指针实验。四轮探针迭代证明：qwen text-embedding-v3 对问题-答案的语义泛化极强，三种措辞错开策略（换标题/换术语/换预算科目表述）下 6 个候选仅 1 个稳定成立（BP01）。盲指针在当前 embedding 下不可稳定构造，agent 循环的结构性优势区间（true multi-hop）在此语料上不可制造。"
+  "agentZone2Note": "AZ06-08（2026-10-12，chunking 修复后）：语料重建揭示中文分句 bug（原 splitter 只认英文句读，纯中文整篇 1 chunk=文档级检索假象）；修复后 chunk 级检索成立，slot 容量机制（所需 chunk>5 槽位）成为与 embedding 强弱无关的稳定差异区。出题纪律：每题先用题目原文探针验证 B 必缺证据、C 分组查询必可解。"
  },
  "questions": [
   {
@@ -549,18 +548,6 @@
    "expectDocKeyword": null,
    "shouldRetrieve": true,
    "notes": "条件对比区：需 C01(上海年假)/C03(上海病假)/02(总部对照表)/06(总部试用期办法) 四 chunk。C 两次查询（上海对/总部对）探针双命中；B 单查询 4 chunk 竞争 5 槽位（含干扰），可能部分缺失。"
-  },
-  {
-   "id": "BP01",
-   "category": "blind_pointer",
-   "question": "出差路上航班取消了，公司让我先垫钱，最多能垫多少？超了要谁同意？",
-   "expectedFacts": [
-    "5000"
-   ],
-   "expectDocKeyword": null,
-   "shouldRetrieve": true,
-   "judgeRequired": false,
-   "notes": "盲指针区（true multi-hop 设计）：问'垫钱'→命中 G02 差旅制度第五条（盲指针：'按财务部内部授权口径文件执行'，不点名）→答案在 G01 财务授权手册（措辞体系完全错开：'特殊情形自有资金额度'）。探针四轮验证：答案doc 原文排名 11（chat口径K=10不可见），指针doc 排名 5，线索词可达第 1。单次检索结构性不可达，需 拉指针全文→找到线索→二跳 或 换词重搜。注意：旧 04-绿色通道文档仍含 5000 且可被'垫付 上限'类措辞直接命中——但本题口语化措辞下其排名未进前 10（探针实测），模型需主动换词才能到达。"
   }
  ]
 }

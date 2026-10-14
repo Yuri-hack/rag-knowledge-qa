@@ -39,6 +39,36 @@ public class TongYiRAGServiceImpl extends BaseTongYiService implements RAGServic
     @Value("${rag.search.top-ratio:10}")
     private double ragSearchTopRatio;
 
+    /** 证据注入位置：false=<context> 放 system（现状）；true=【检索结果】放 user 轮（与 B 臂同构，实验开关） */
+    @Value("${rag.context-in-user-turn:false}")
+    private boolean contextInUserTurn;
+
+    /**
+     * prompt 版本 = RAG prompt 文本的 sha256 前 8 位，随文本自动变化。
+     * 目的：prompt 漂移在评测数字层面必须可见（BC02 教训），不依赖人工升版本号。
+     */
+    private String promptVersion() {
+        String prompt = promptConfig.getRagPrompt() == null ? "" : promptConfig.getRagPrompt();
+        try {
+            byte[] digest = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(prompt.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder("rag-");
+            for (int i = 0; i < 4; i++) {
+                sb.append(String.format("%02x", digest[i]));
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            return "rag-unknown";
+        }
+    }
+
+    /** 给流式末尾事件打上 prompt 版本 */
+    private Flux<StreamChatResponse> stampPromptVersion(Flux<StreamChatResponse> source) {
+        String version = promptVersion();
+        return source.map(resp -> resp.isFinished()
+                ? resp.toBuilder().promptVersion(version).build() : resp);
+    }
+
     public TongYiRAGServiceImpl(TongYiBaseConfig tongYiBaseConfig,
                                 PromptConfig promptConfig,
                                 KnowledgeBaseService knowledgeBaseService,
@@ -71,13 +101,13 @@ public class TongYiRAGServiceImpl extends BaseTongYiService implements RAGServic
      * 使用缓存上下文重新生成答案
      */
     private Flux<StreamChatResponse> generateWithCachedContext(String question, List<String> contextChunks) {
-        return writeCacheDetached(
+        return stampPromptVersion(writeCacheDetached(
                 buildRAGMessages(question, contextChunks)
                         .flatMapMany(messages -> generateStream(messages, tongYiBaseConfig.getRagModelConfig())),
                 answer -> {
                     cacheAnswer(question, answer);
                     log.info("语义缓存重新生成完成，答案已缓存");
-                });
+                }));
     }
 
     /**
@@ -86,7 +116,7 @@ public class TongYiRAGServiceImpl extends BaseTongYiService implements RAGServic
     private Flux<StreamChatResponse> executeFullRAG(String question) {
         AtomicReference<List<Long>> documentChunkIds = new AtomicReference<>();
 
-        return writeCacheDetached(
+        return stampPromptVersion(writeCacheDetached(
                 retrieveContexts(question, documentChunkIds)
                         .flatMapMany(contexts -> buildRAGMessages(question, contexts))
                         .flatMap(messages -> generateStream(messages, tongYiBaseConfig.getRagModelConfig())),
@@ -94,7 +124,7 @@ public class TongYiRAGServiceImpl extends BaseTongYiService implements RAGServic
                     cacheAnswer(question, answer);
                     semanticDocumentCacheService.cacheSemanticDocument(question, documentChunkIds.get());
                     log.info("完整RAG流程完成，缓存已更新");
-                });
+                }));
     }
 
     /**
@@ -126,6 +156,11 @@ public class TongYiRAGServiceImpl extends BaseTongYiService implements RAGServic
     private Mono<List<Message>> buildRAGMessages(String question, List<String> contextChunks) {
         return Mono.fromCallable(() -> {
             String context = String.join("\n\n", contextChunks);
+            if (contextInUserTurn) {
+                // 证据以【检索结果】放入 user 轮，system 提示词去掉 {context} 占位
+                String systemPrompt = promptConfig.getRagPrompt().replace("{context}", "");
+                return buildMessages(systemPrompt, question + "\n\n【检索结果】\n" + context);
+            }
             String ragPrompt = promptConfig.getRagPrompt().replace("{context}", context);
             return buildMessages(ragPrompt, question);
         });
