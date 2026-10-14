@@ -14,6 +14,7 @@ import io.milvus.grpc.SearchResults;
 import io.milvus.param.IndexType;
 import io.milvus.param.MetricType;
 import io.milvus.param.R;
+import io.milvus.param.collection.FlushParam;
 import io.milvus.param.RpcStatus;
 import io.milvus.param.collection.CreateCollectionParam;
 import io.milvus.param.collection.DropCollectionParam;
@@ -110,12 +111,29 @@ public class MilvusVectorServiceImpl implements VectorStoreService {
             }
 
             List<Long> milvusIds = response.getData().getIDs().getIntId().getDataList();
+            // 显式 flush：插入只写 growing segment，未落盘的数据在 querynode 抖动/段回收时会丢
+            //（2026-10-13 两次"神秘清库"均为此因：集合 ID 未变但 row_count=0、段列表为空）
+            flushCollection();
             log.info("成功插入 {} 个向量到Milvus，生成的ID数量: {}", chunks.size(), milvusIds.size());
             return milvusIds;
 
         } catch (Exception e) {
             log.error("插入向量到Milvus失败", e);
             throw new VectorStorageException("向量插入失败", e);
+        }
+    }
+
+    /** 显式 flush：把 growing segment 落盘，避免未 flush 数据在段回收/节点抖动时丢失。 */
+    private void flushCollection() {
+        try {
+            R<io.milvus.grpc.FlushResponse> resp = milvusClient.flush(FlushParam.newBuilder()
+                    .addCollectionName(milvusConfig.getCollectionName())
+                    .build());
+            if (resp.getStatus() != R.Status.Success.getCode()) {
+                log.warn("Milvus flush 返回非成功状态: {}", resp.getMessage());
+            }
+        } catch (Exception e) {
+            log.warn("Milvus flush 异常（不影响插入结果，但数据可能未落盘）", e);
         }
     }
 
