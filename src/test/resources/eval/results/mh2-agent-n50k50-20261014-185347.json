@@ -1,0 +1,205 @@
+{
+ "label": "mh2-agent-n50k50",
+ "endpoint": "agent",
+ "promptVersion": "v0.4",
+ "rewrite": true,
+ "cache": {
+  "disabledDuringRun": true,
+  "flushedKeys": 5,
+  "remainingAfterFlush": 0
+ },
+ "finishedAt": "20261014-185347",
+ "rows": [
+  {
+   "id": "MH203",
+   "category": "multihop_bridge",
+   "question": "行政部的Yealink 视频会议终端 MVC，资产编号和屏幕保修期分别是什么？",
+   "passed": true,
+   "judgeRequired": false,
+   "infraError": false,
+   "infraRetries": 0,
+   "termination": "COMPLETED",
+   "toolCalls": 3,
+   "toolFailures": [],
+   "factHits": [
+    "YC-HY-2026-0002",
+    "24个月"
+   ],
+   "factsExpected": [
+    "YC-HY-2026-0002",
+    "24个月"
+   ],
+   "shouldRetrieve": true,
+   "retrievalHit": false,
+   "retrievedFiles": [
+    "N01-固定资产保修期限登记表",
+    "M168-设备保修条款-MN7YS9",
+    "M089-设备保修条款-LTDVKN-CN",
+    "M257-设备保修条款-MBVKKN",
+    "M216-设备保修条款-MBVY9H",
+    "M078-设备保修条款-SV97YC",
+    "M251-设备保修条款-MBCY45",
+    "M205-设备保修条款-MBQSY9",
+    "M283-设备保修条款-LTDYH4-C",
+    "N01-固定资产保修期限登记表"
+   ],
+   "tokens": 95527,
+   "ttftMs": 27539,
+   "totalMs": 27541,
+   "error": null,
+   "answer": "根据检索结果，行政部 Yealink 视频会议终端 MVC 的资产编号和屏幕保修期已明确：\n\n- **资产编号**：在《N00-2026年新增办公设备配发通知》中明确指出，行政部配发的 Yealink 视频会议终端 MVC 的资产编号为 **YC-HY-2026-0002**（见检索结果第3条）。\n\n- **屏幕保修期**：在《N01-固定资产保修期限登记表》中，资产编号 YC-HY-2026-0002 对应的屏幕保修期为 **24 个月**（见检索结果第1、第7条，均显示“YC-HY-2026-0002 | 整机 36 个月 | 电池 18 个月 | 屏幕 24 个月”）。\n\n因此，答案如下：\n\n- **资产编号**：YC-HY-2026-0002  \n- **屏幕保修期**：24 个月"
+  },
+  {
+   "id": "MH204",
+   "category": "multihop_bridge",
+   "question": "行政部的Yealink 视频会议终端 MVC，资产编号和整机保修期分别是什么？",
+   "passed": false,
+   "judgeRequired": false,
+   "infraError": false,
+   "infraRetries": 0,
+   "termination": "COMPLETED",
+   "toolCalls": 3,
+   "toolFailures": [],
+   "factHits": [
+    "YC-HY-2026-0002"
+   ],
+   "factsExpected": [
+    "YC-HY-2026-0002",
+    "36个月"
+   ],
+   "shouldRetrieve": true,
+   "retrievalHit": false,
+   "retrievedFiles": [
+    "N01-固定资产保修期限登记表",
+    "M168-设备保修条款-MN7YS9",
+    "M078-设备保修条款-SV97YC",
+    "M216-设备保修条款-MBVY9H",
+    "M089-设备保修条款-LTDVKN-CN",
+    "M205-设备保修条款-MBQSY9",
+    "M257-设备保修条款-MBVKKN",
+    "M251-设备保修条款-MBCY45",
+    "M283-设备保修条款-LTDYH4-C",
+    "M169-设备保修条款-LTASVV-CN"
+   ],
+   "tokens": 91733,
+   "ttftMs": 29134,
+   "totalMs": 29135,
+   "error": null,
+   "answer": "根据检索结果，我找到了行政部Yealink视频会议终端MVC的资产编号信息。在《N00-2026年新增办公设备配发通知》中明确提到：\"会议设备：Yealink 视频会议终端 MVC，配发行政部，资产编号 YC-HY-2026-0002\"。\n\n接下来，我需要查找该资产编号对应的整机保修期。根据《N00-2026年新增办公设备配发通知》中的说明：\"各资产的具体保修期限见《固定资产保修期限登记表》，以资产编号为准查询\"。因此，我需要在《N01-固定资产保修期限登记表》中查找资产编号\"YC-HY-2026-0002\"的保修期限。\n\n然而，在当前的检索结果中，《N01-固定资产保修期限登记表》只列出了以\"YC-AF-\"开头的资产编号（如YC-AF-2022-0009），以及在chunk#57中列出了以\"YC-QT-\"开头的资产编号（如YC-QT-2025-0341），但没有找到\"YC-HY-2026-0002\"这个编号。\n\n由于检索预算限制为3次，我已经使用了3次search_knowledge，现在需要基于已有信息作答。根据现有信息，我可以确认资产编号为YC-HY-2026-0002，但无法从知识库中找到该编号对应的整机保修期。\n\n根据《N00-2026年新增办公设备配发通知》中的说明：\"设备保修期自领用登记之日起算；各资产的具体保修期限见《固定资产保修期限登记表》，以资产编号为准查询，本通知不列出具体期限\"，这表明保修期信息确实存在于《固定资产保修期限登记表》中，但当前检索结果中未包含该特定编号的记录。\n\n因此，我只能提供已确认的资产编号，并说明整机保修期信息在知识库中未找到。"
+  },
+  {
+   "id": "MH205",
+   "category": "multihop_bridge",
+   "question": "培训中心的Epson 激光投影仪 L730U，资产编号和电池保修期分别是什么？",
+   "passed": true,
+   "judgeRequired": false,
+   "infraError": false,
+   "infraRetries": 0,
+   "termination": "COMPLETED",
+   "toolCalls": 3,
+   "toolFailures": [],
+   "factHits": [
+    "YC-HY-2026-0003",
+    "18个月"
+   ],
+   "factsExpected": [
+    "YC-HY-2026-0003",
+    "18个月"
+   ],
+   "shouldRetrieve": true,
+   "retrievalHit": false,
+   "retrievedFiles": [
+    "N00-2026年新增办公设备配发通知",
+    "M296-设备保修条款-LTX7U3-B",
+    "M286-设备保修条款-SV7EP5-CN",
+    "M269-设备保修条款-PRP7PN-A",
+    "M075-设备保修条款-PR7ED2",
+    "N01-固定资产保修期限登记表",
+    "M013-设备保修条款-T27H-30",
+    "M089-设备保修条款-LTDVKN-CN",
+    "M235-设备保修条款-LT4A7F",
+    "M014-设备保修条款-PER760-2U"
+   ],
+   "tokens": 84978,
+   "ttftMs": 54242,
+   "totalMs": 54243,
+   "error": null,
+   "answer": "已获取《固定资产保修期限登记表》part 1（共61块中的前5块），内容全部为历史资产编号（YC-AF-2022-xxx 至 YC-AF-2025-xxx），**未出现 YC-HY-2026-0003**，也无任何以 `YC-HY-2026-` 开头的条目。\n\n结合所有检索与文档查看结果：\n\n✅ **资产编号**：明确可得  \n→ 来自《N00-2026年新增办公设备配发通知》【5】：  \n**Epson 激光投影仪 L730U，资产编号为 `YC-HY-2026-0003`**\n\n❌ **电池保修期**：知识库中**无直接依据**  \n- 无 `L730U` 型号专属《设备保修条款》；  \n- 《固定资产保修期限登记表》当前全部61块（虽仅读取part 1，但编号规律显示其按年份+序列严格排序，2026年新资产应集中于后段；但即使后续存在，该表本身也需依赖原始采购/保修协议生成，而知识库未收录）；  \n- 所有已检出的同类投影/显示设备保修期不一致（如 LTX7U3-B：电池12个月；SV7EP5-CN：电池18个月；PRBK8U-A：电池24个月），**无法类推**；  \n- 制度明确要求“按型号分别规定”“不得相互比照适用”（见【23】），故不能跨型号推测。\n\n🔍 结论：  \n- 资产编号：✅ 已确认，为 **YC-HY-2026-0003**；  \n- 电池保修期：❌ 知识库中**未收录该设备的具体电池保修期限**。根据制度，该信息应存在于：  \n  ▪ 对应采购合同或 Epson 厂商服务协议；  \n  ▪ 或已录入固定资产系统的 `YC-HY-2026-0003` 详情页；  \n  ▪ 或尚未发布/未同步至知识库的《2026年Q1投影设备专项保修备案》等内部文件。\n\n⚠️ 最终回答（严格遵循规则）：  \n- 资产编号：**YC-HY-2026-0003**（来源：《N00-2026年新增办公设备配发通知》，documentId=DOC_1791974872373_c8e0b281）；  \n- 电池保修期：**知识库中未找到关于 Epson L730U 的电池保修期信息**。建议通过以下途径查询：  \n  • 登录固定资产系统，搜索资产编号 `YC-HY-2026-0003` 查看保修详情；  \n  • 联系信息技术部 IT 服务台（分机 8080）报修时同步核实；  \n  • 或查阅该设备随箱《Epson 原厂保修卡》（通常贴于包装内侧或设备底部铭牌旁）。\n\n（检索预算已用满3次：search_knowledge ×2 + get_document_detail ×1，符合规则第3条）"
+  },
+  {
+   "id": "MH206",
+   "category": "multihop_bridge",
+   "question": "培训中心的Epson 激光投影仪 L730U，资产编号和屏幕保修期分别是什么？",
+   "passed": true,
+   "judgeRequired": false,
+   "infraError": false,
+   "infraRetries": 0,
+   "termination": "COMPLETED",
+   "toolCalls": 3,
+   "toolFailures": [],
+   "factHits": [
+    "YC-HY-2026-0003",
+    "24个月"
+   ],
+   "factsExpected": [
+    "YC-HY-2026-0003",
+    "24个月"
+   ],
+   "shouldRetrieve": true,
+   "retrievalHit": false,
+   "retrievedFiles": [
+    "N00-2026年新增办公设备配发通知",
+    "M296-设备保修条款-LTX7U3-B",
+    "M269-设备保修条款-PRP7PN-A",
+    "M075-设备保修条款-PR7ED2",
+    "N01-固定资产保修期限登记表",
+    "M286-设备保修条款-SV7EP5-CN",
+    "M013-设备保修条款-T27H-30",
+    "M089-设备保修条款-LTDVKN-CN",
+    "M014-设备保修条款-PER760-2U",
+    "M235-设备保修条款-LT4A7F"
+   ],
+   "tokens": 105252,
+   "ttftMs": 32090,
+   "totalMs": 32090,
+   "error": null,
+   "answer": "根据检索结果，我已经找到了培训中心Epson激光投影仪L730U的资产编号和屏幕保修期信息：\n\n1. 资产编号：在《N00-2026年新增办公设备配发通知》中明确提到：\"会议设备：Epson 激光投影仪 L730U，配发培训中心，资产编号 YC-HY-2026-0003。\"\n\n2. 屏幕保修期：在《N01-固定资产保修期限登记表》中，找到了资产编号YC-HY-2026-0003对应的保修期限：\"YC-HY-2026-0003 | 整机 36 个月 | 电池 18 个月 | 屏幕 24 个月\"。\n\n因此，培训中心的Epson激光投影仪L730U的资产编号是YC-HY-2026-0003，屏幕保修期为24个月。"
+  },
+  {
+   "id": "MH207",
+   "category": "multihop_bridge",
+   "question": "培训中心的Epson 激光投影仪 L730U，资产编号和整机保修期分别是什么？",
+   "passed": false,
+   "judgeRequired": false,
+   "infraError": false,
+   "infraRetries": 0,
+   "termination": "COMPLETED",
+   "toolCalls": 3,
+   "toolFailures": [],
+   "factHits": [],
+   "factsExpected": [
+    "YC-HY-2026-0003",
+    "36个月"
+   ],
+   "shouldRetrieve": true,
+   "retrievalHit": false,
+   "retrievedFiles": [
+    "N00-2026年新增办公设备配发通知",
+    "M296-设备保修条款-LTX7U3-B",
+    "M269-设备保修条款-PRP7PN-A",
+    "M075-设备保修条款-PR7ED2",
+    "N01-固定资产保修期限登记表",
+    "M286-设备保修条款-SV7EP5-CN",
+    "M013-设备保修条款-T27H-30",
+    "M089-设备保修条款-LTDVKN-CN",
+    "M014-设备保修条款-PER760-2U",
+    "M229-设备保修条款-MBAXEN-2U"
+   ],
+   "tokens": 97856,
+   "ttftMs": 47366,
+   "totalMs": 47367,
+   "error": null,
+   "answer": "三次检索（`Epson L730U 保修期` → `Epson 投影仪 保修期` → `IT设备管理办法 保修期`）均已完成，检索预算用尽。\n\n✅ **最终结论如下**：\n\n1. **资产编号**：  \n   - 知识库中**无任何制度文档记录单台设备的资产编号**；  \n   - 资产编号属于IT资产管理系统台账数据，需通过行政/IT部门查询原始采购验收单或设备登记表；  \n   - **本制度问答系统无法提供该信息**。\n\n2. **整机保修期**：  \n   - 知识库中**未收录 Epson L730U 型号的专用保修条款**；  \n   - 无 Epson 品牌、激光投影仪、或通用投影仪类别的统一保修政策；  \n   - 上位制度《Z-设备保修与维修管理办法》（documentId=DOC_1791974468407_37a71f24）明确：“**设备的保修期限按型号分别规定，具体见各型号对应的《设备保修条款》**”，即不设兜底规则；  \n   - 因此，**知识库中未找到 Epson L730U 的整机保修期依据**。\n\n📌 补充说明：  \n- Epson 官方对 L730U 激光投影仪的标准保修通常为 **3 年整机 + 3 年激光光源**（以官网或厂商合同为准），但云启科技是否采纳该标准、是否延保、是否因采购协议另有约定，均不在当前知识库覆盖范围内；  \n- 若需确认实际保修状态，建议：  \n  ✅ 联系信息技术部，提供设备型号及领用时间，核查《固定资产保修期限登记表》（DOC_1791974876618_1f2d0571）最新版本；  \n  ✅ 或调阅该设备采购合同/验收单（归属培训中心行政档案）。\n\n🔚 综上，本问题两项信息均**知识库未覆盖**，无法作答。"
+  }
+ ]
+}

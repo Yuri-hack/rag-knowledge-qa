@@ -29,6 +29,7 @@ def corpus_files():
     files = (sorted(CORPUS.glob("[0-9][0-9]-*.md"))
              + sorted(CORPUS.glob("gen/split/*.md"))
              + sorted(CORPUS.glob("gen/batch3/*.md"))
+             + sorted(CORPUS.glob("gen/batch5/*.md"))
              )
     return files
 
