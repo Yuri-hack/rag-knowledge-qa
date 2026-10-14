@@ -16,11 +16,11 @@ import java.util.List;
 @RequiredArgsConstructor
 public class KnowledgeSearchTool implements Tool {
 
-    /** 检索漏斗参数：默认与基线同构（池 10 → 留 5）；实验可用 rag.agent.search.* 覆盖 */
-    @Value("${rag.agent.search.top-k:10}")
+    /** 检索漏斗：与基线保持同构（默认池 20 → 留 10），保证架构对比只剩循环一个变量 */
+    @Value("${rag.agent.search.top-k:20}")
     private int topK;
 
-    @Value("${rag.agent.search.top-ratio:0.5}")
+    @Value("${rag.agent.search.top-ratio:10}")
     private double topRatio;
 
     // 不做内容截断：曾截 400 字符砍掉尾部数字行，制造基线没有的失败面（已移除）。

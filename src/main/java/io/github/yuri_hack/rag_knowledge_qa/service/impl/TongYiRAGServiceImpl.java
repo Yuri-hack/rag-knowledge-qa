@@ -32,11 +32,11 @@ public class TongYiRAGServiceImpl extends BaseTongYiService implements RAGServic
     private final SemanticAnswerCacheService semanticAnswerCacheService;
     private final CacheService cacheService;
 
-    /** 检索漏斗：topK=召回池 N；topRatio 0<x<1 按比例截断，>=1 视为进上下文条数 K（默认 10 → 5） */
-    @Value("${rag.search.top-k:10}")
+    /** 检索漏斗：topK=召回池 N；topRatio 0<x<1 按比例截断，>=1 视为进上下文条数 K（默认 N=20/K=10，深池实验结论） */
+    @Value("${rag.search.top-k:20}")
     private int ragSearchTopK;
 
-    @Value("${rag.search.top-ratio:0.5}")
+    @Value("${rag.search.top-ratio:10}")
     private double ragSearchTopRatio;
 
     public TongYiRAGServiceImpl(TongYiBaseConfig tongYiBaseConfig,

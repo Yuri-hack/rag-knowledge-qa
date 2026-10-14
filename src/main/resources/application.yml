@@ -100,6 +100,16 @@ rag:
   chunk:
     size: 512
     overlap: 100
+  # 检索漏斗（2026-10-14 深池实验后定为默认）：top-k=召回池 N；top-ratio 语义见 SearchRequest
+  #   >1 视为进上下文的绝对条数 K（当前 10）；0<x<1 按比例截断；<=0 不截断
+  #   实测（20 题）：N=10/K=5 → N=20/K=10 使基线 14/20→16/20、单跳无损、延迟不变、token +61%
+  search:
+    top-k: 20
+    top-ratio: 10
+  agent:
+    search:
+      top-k: 20
+      top-ratio: 10
   # D6 会话记忆
   memory:
     max-turns: 3
