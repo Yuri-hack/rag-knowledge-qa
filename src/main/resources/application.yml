@@ -100,12 +100,23 @@ rag:
   chunk:
     size: 512
     overlap: 100
+  # 混合检索：稠密 + BM25 词法通道。动机见 results/multihop-bridge-20261014.md：
+  # 稠密向量对无意义 token（资产编号/单号）无法精确匹配，需词法通道 + 精确匹配兜底。
+  #   lexical-top-k   词法候选数；max-candidates 送 rerank 上限（reranker 侧硬上限 50）
+  #   rescue-count    词法 top-N 被 rerank 挤出最终结果时强行补回的条数
+  #   index-ttl-seconds 词法索引重建周期（与上传进程解耦，靠 TTL 感知新增语料）
   # 检索漏斗（2026-10-14 深池实验后定为默认）：top-k=召回池 N；top-ratio 语义见 SearchRequest
   #   >1 视为进上下文的绝对条数 K（当前 10）；0<x<1 按比例截断；<=0 不截断
   #   实测（20 题）：N=10/K=5 → N=20/K=10 使基线 14/20→16/20、单跳无损、延迟不变、token +61%
   search:
     top-k: 20
     top-ratio: 10
+    hybrid:
+      enabled: true
+      lexical-top-k: 20
+      max-candidates: 50
+      rescue-count: 3
+      index-ttl-seconds: 300
   agent:
     search:
       top-k: 20
