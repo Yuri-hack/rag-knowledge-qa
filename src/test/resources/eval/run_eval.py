@@ -70,6 +70,9 @@ def stream_answer(question: str, endpoint: str = "baseline", mode: str = "agent"
     """调问答端点；session 非空时带 sessionId + rewrite（D6 多轮）。"""
     if endpoint in ("agent", "singleshot"):
         qs = {"question": question, "mode": mode, "maxSteps": 6, "debug": "true"}
+        if session:   # D7：agent 端点已支持会话记忆，多轮题三臂可比
+            qs["sessionId"] = session
+            qs["rewrite"] = "true" if rewrite else "false"
         url = BASE + "/api/chat/agent?" + urllib.parse.urlencode(qs)
     else:
         qs = {"question": question}
