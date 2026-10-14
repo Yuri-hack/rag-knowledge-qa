@@ -1,4 +1,4 @@
-package io.github.d3kstra.rag_knowledge_qa.agent;
+package io.github.d3kstra.rag_knowledge_qa.agent.tool;
 
 import com.google.gson.JsonObject;
 import io.github.d3kstra.rag_knowledge_qa.entity.DocumentChunk;

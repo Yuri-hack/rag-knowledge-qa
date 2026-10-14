@@ -1,4 +1,6 @@
-package io.github.d3kstra.rag_knowledge_qa.agent;
+package io.github.d3kstra.rag_knowledge_qa.agent.tool;
+
+import io.github.d3kstra.rag_knowledge_qa.agent.TongYiAgentService;
 
 import com.google.gson.JsonObject;
 import io.github.d3kstra.rag_knowledge_qa.dto.response.ChatResponse;

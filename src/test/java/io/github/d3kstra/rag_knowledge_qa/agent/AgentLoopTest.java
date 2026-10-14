@@ -1,5 +1,9 @@
 package io.github.d3kstra.rag_knowledge_qa.agent;
 
+import io.github.d3kstra.rag_knowledge_qa.agent.model.AgentTrace;
+import io.github.d3kstra.rag_knowledge_qa.agent.tool.KnowledgeSearchTool;
+import io.github.d3kstra.rag_knowledge_qa.agent.tool.WebSearchTool;
+
 import com.alibaba.dashscope.common.Message;
 import com.alibaba.dashscope.common.Role;
 import com.alibaba.dashscope.tools.ToolBase;

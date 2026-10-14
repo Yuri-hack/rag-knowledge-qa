@@ -1,4 +1,7 @@
-package io.github.d3kstra.rag_knowledge_qa.agent;
+package io.github.d3kstra.rag_knowledge_qa.agent.tool;
+
+import io.github.d3kstra.rag_knowledge_qa.agent.Tool;
+import io.github.d3kstra.rag_knowledge_qa.agent.TongYiAgentService;
 
 import com.alibaba.dashscope.utils.JsonUtils;
 import com.google.gson.JsonObject;

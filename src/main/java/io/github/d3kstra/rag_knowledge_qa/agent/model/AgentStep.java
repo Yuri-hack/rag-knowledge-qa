@@ -1,4 +1,4 @@
-package io.github.d3kstra.rag_knowledge_qa.agent;
+package io.github.d3kstra.rag_knowledge_qa.agent.model;
 
 import io.github.d3kstra.rag_knowledge_qa.dto.response.UsageInfo;
 import lombok.AllArgsConstructor;

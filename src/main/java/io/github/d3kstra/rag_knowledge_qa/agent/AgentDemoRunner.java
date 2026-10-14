@@ -1,5 +1,7 @@
 package io.github.d3kstra.rag_knowledge_qa.agent;
 
+import io.github.d3kstra.rag_knowledge_qa.agent.model.AgentTrace;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
