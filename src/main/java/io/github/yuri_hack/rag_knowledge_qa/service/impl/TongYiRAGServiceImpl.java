@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
@@ -42,6 +43,13 @@ public class TongYiRAGServiceImpl extends BaseTongYiService implements RAGServic
     /** 证据注入位置：false=<context> 放 system（现状）；true=【检索结果】放 user 轮（与 B 臂同构，实验开关） */
     @Value("${rag.context-in-user-turn:false}")
     private boolean contextInUserTurn;
+
+    /**
+     * 上下文是否携带来源标注（《文件名》chunk#序号 相似度）——与检索工具输出同构。
+     * 假设：B 臂在多主体/多文档题上的优势来自"每条证据可归属到具体文档"，而非循环或更长的推演。
+     */
+    @Value("${rag.context-include-source:false}")
+    private boolean contextIncludeSource;
 
     /**
      * prompt 版本 = RAG prompt 文本的 sha256 前 8 位，随文本自动变化。
@@ -139,9 +147,19 @@ public class TongYiRAGServiceImpl extends BaseTongYiService implements RAGServic
                     .map(KnowledgeSearchResult::getChunkId)
                     .toList());
 
-            return searchResults.stream()
-                    .map(KnowledgeSearchResult::getContent)
-                    .toList();
+            if (!contextIncludeSource) {
+                return searchResults.stream()
+                        .map(KnowledgeSearchResult::getContent)
+                        .toList();
+            }
+            // 带来源标注（与 KnowledgeSearchTool 输出同构）：便于模型区分多文档/多主体证据
+            List<String> labeled = new ArrayList<>();
+            int seq = 1;
+            for (KnowledgeSearchResult r : searchResults) {
+                labeled.add(String.format("【%d】《%s》 chunk#%s 相似度=%.2f%n%s",
+                        seq++, r.getFileName(), r.getChunkIndex(), r.getSimilarity(), r.getContent()));
+            }
+            return labeled;
         });
     }
 

@@ -69,3 +69,31 @@ nohup ./mvnw spring-boot:run -Dspring-boot.run.arguments="--spring.profiles.acti
 python3 run_eval.py --label promptv1-baseline --endpoint baseline --ids "$IDS"
 # 结果 JSON 的 promptVersion 字段即 prompt 身份；boot 时的探针可能被语义缓存命中，以结果字段为准
 ```
+
+## 六、追加实验（同日）：定位 +2 分的真实来源（v5/v6/v7）
+
+在第一轮（v1-v4）全部失败后，逐一排查剩余差异：`enableSearch`（两边均 false，排除）、
+证据来源标注（v6，排除）、证据位置（v4，排除）。最后剩"prompt 是否逐字保留工具框架"这一项：
+
+| 变体 | 构造 | 通过 | 多事实 | avgToken |
+|---|---|---|---|---|
+| v6 | v2 + 上下文加《文件名》/chunk/相似度标注 | 15/20 | 5/10 | 3,371 |
+| **v5** | **v0.4 逐字（含 search_knowledge/预算/detail/web_search 指令）+ 证据以工具格式放 user 轮** | **17/20** | **7/10** | **4,191** |
+| v7 | v5 的同结构 + 诚实框架（"检索已完成、无剩余预算"） | 16/20 | 6/10 | 3,763 |
+| B 臂 | v0.4 逐字 + 真实工具调用后作答 | 18/20 | 8/10 | 14,876 |
+
+**结论：**+2 分中约一半来自"**让模型以为自己在工具工作流中**"这个 prompt 框架（v5=17，一旦改成
+诚实描述（v7）即回落到 16）；另一半（17→18）来自真实的 3.5 倍推演量（B 臂）。规则条文本身
+（v2 诚实改写、v3 删框架移植）**均无增益甚至有害**。
+
+**工程决定：不把 v5 设为默认。** 它的 prompt 指示模型调用基线不存在的工具（`search_knowledge`、
+检索预算、`get_document_detail`、`web_search`），靠"模型把注入的证据当成自己的检索结果"起效。
+这是框架 hack：一是维护陷阱（读代码的人会困惑；若将来给 RAG 路径绑定工具，行为会突变），
+二是与"prompt 必须如实描述可用能力"的工程原则冲突。当前默认保留 v2（诚实版，16/20，3.1k token）。
+
+**可选配置（如需这 +1 分）**：`rag.context-in-user-turn=true` + `rag.context-include-source=true`
++ 以 `--spring.config.additional-location` 注入 v0.4 原文 prompt（复现脚本见会话记录），
+代价 +40% token，收益 +1/20 题。
+
+**更干净的替代方案**：按题型路由——多主体题（MA/AG/AZ 类）走 B 臂/冗长路径（多事实 8/10），
+其余走基线（多事实 6/10）。这条路径的收益与 v5 相当或更好，且不依赖框架错觉。
