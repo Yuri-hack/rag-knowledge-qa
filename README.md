@@ -251,8 +251,8 @@ http://115.190.202.146:3000/
 
 ## 📞 联系我们
 
-- 项目主页：https://github.com/Yuri-hack/rag-knowledge-qa
-- 问题反馈：https://github.com/Yuri-hack/rag-knowledge-qa/issues
+- 项目主页：https://github.com/d3kstra/rag-knowledge-qa
+- 问题反馈：https://github.com/d3kstra/rag-knowledge-qa/issues
 - 邮箱：15690863316@163.com
 
 ---
