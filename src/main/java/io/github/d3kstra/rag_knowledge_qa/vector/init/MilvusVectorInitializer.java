@@ -43,9 +43,14 @@ public class MilvusVectorInitializer {
     private static final String TEXT_FIELD = "text";
     private static final String SPARSE_FIELD = "sparse";
     private static final String BM25_FUNCTION = "bm25_text";
+    /** 业务编号（资产编号/单号/型号代码）数组字段：BM25 分词对 YC-XX-YYYY-NNNN 失效，靠它做精确过滤 */
+    private static final String CODES_FIELD = "codes";
 
     /** 分块上限 512 字符，留余量 */
     private static final int TEXT_MAX_LENGTH = 4096;
+    /** 单个业务编号最大长度与每块最大编号数（与 MilvusVectorServiceImpl.extractCodes 的上限一致） */
+    private static final int CODE_MAX_LENGTH = 64;
+    private static final int CODE_MAX_CAPACITY = 8;
 
     @PostConstruct
     public void init() {
@@ -142,6 +147,16 @@ public class MilvusVectorInitializer {
                     .dataType(DataType.SparseFloatVector)
                     .build());
 
+            // 业务编号数组：BM25 稀疏路对 "YC-HY-2026-0002" 这类编号的区分性 token 不参与匹配
+            // （实测三个不同编号返回同一条同分数），故用标量精确过滤补齐。
+            schema.addField(AddFieldReq.builder()
+                    .fieldName(CODES_FIELD)
+                    .dataType(DataType.Array)
+                    .elementType(DataType.VarChar)
+                    .maxLength(CODE_MAX_LENGTH)
+                    .maxCapacity(CODE_MAX_CAPACITY)
+                    .build());
+
             // BM25 Function：text → sparse（输出字段索引 metric 必须是 BM25）
             schema.addFunction(CreateCollectionReq.Function.builder()
                     .name(BM25_FUNCTION)
@@ -164,6 +179,10 @@ public class MilvusVectorInitializer {
                                     .fieldName(SPARSE_FIELD)
                                     .indexType(IndexParam.IndexType.SPARSE_INVERTED_INDEX)
                                     .metricType(IndexParam.MetricType.BM25)
+                                    .build(),
+                            IndexParam.builder()
+                                    .fieldName(CODES_FIELD)
+                                    .indexType(IndexParam.IndexType.INVERTED)
                                     .build()))
                     .build());
 

@@ -35,6 +35,7 @@ def corpus_files():
              + sorted(CORPUS.glob("gen/split/*.md"))
              + sorted(CORPUS.glob("gen/batch3/*.md"))
              + sorted(CORPUS.glob("gen/batch5/*.md"))
+             + sorted(CORPUS.glob("gen/batch6/*.md"))   # 多跳语料（配发通知+保修登记表）：此前漏收集，导致 MH 目标文档缺失
              )
     return files
 

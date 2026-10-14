@@ -1,5 +1,17 @@
 package io.github.d3kstra.rag_knowledge_qa.vector.impl;
 
+import java.util.Map;
+
+import com.google.gson.JsonArray;
+import io.milvus.v2.service.vector.request.QueryReq;
+import io.milvus.v2.service.vector.response.QueryResp;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Locale;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import io.github.d3kstra.rag_knowledge_qa.config.MilvusConfig;
@@ -52,6 +64,8 @@ public class MilvusVectorServiceImpl implements VectorStoreService {
     private static final String CHUNK_ID_FIELD = "chunk_id";
     private static final String TEXT_FIELD = "text";
     private static final String SPARSE_FIELD = "sparse";
+    /** 业务编号数组字段（与 MilvusVectorInitializer.CODES_FIELD 一致） */
+    private static final String CODES_FIELD = "codes";
 
     /** RRF 平滑常数（Milvus 默认 60） */
     private static final int RRF_K = 60;
@@ -89,6 +103,11 @@ public class MilvusVectorServiceImpl implements VectorStoreService {
                 row.addProperty(CHUNK_INDEX_FIELD, chunk.getChunkIndex());
                 // BM25 的输入：必须带正文，稀疏向量由服务端 Function 生成
                 row.addProperty(TEXT_FIELD, chunk.getContent());
+                // 业务编号（资产编号/单号/型号）入数组字段：BM25 对 YC-XX-YYYY-NNNN 分词失效，
+                // 检索时靠 ARRAY_CONTAINS 做精确过滤
+                JsonArray codesArray = new JsonArray();
+                extractCodes(chunk.getContent()).forEach(codesArray::add);
+                row.add(CODES_FIELD, codesArray);
                 rows.add(row);
                 insertedIds.add(chunk.getId());
             }
@@ -184,13 +203,90 @@ public class MilvusVectorServiceImpl implements VectorStoreService {
 
             SearchResp response = milvusClient.hybridSearch(request);
             List<VectorSearchResult> results = toVectorSearchResults(response);
-            log.debug("混合检索完成（dense+sparse+RRF），返回结果数: {}", results.size());
-            return results;
+            // 含业务编号的查询：RRF 单腿强信号会被双腿中等信号系统性压过（1/61 < 1/65+1/80），
+            // 且实测 BM25 稀疏腿对 YC-XX-YYYY-NNNN 根本匹配不到，故用标量精确过滤把命中块前置。
+            List<VectorSearchResult> withExact = prependExactMatches(results, queryText, topK);
+            log.debug("混合检索完成（dense+sparse+RRF），返回结果数: {} → 精确过滤后 {}",
+                    results.size(), withExact.size());
+            return withExact;
 
         } catch (Exception e) {
             log.error("Milvus混合检索失败，topK: {}", topK, e);
             throw new VectorStorageException("混合检索失败: " + e.getMessage(), e);
         }
+    }
+
+    /** 业务编号：字母数字串，内部至少一个 - 或 / 分隔（资产编号、单号、型号代码） */
+    private static final Pattern CODE_PATTERN =
+            Pattern.compile("[A-Za-z0-9]+(?:[-/][A-Za-z0-9]+)+");
+
+    /** 每块最多保留的编号数（与 schema 的 maxCapacity 一致） */
+    private static final int CODE_MAX_COUNT = 8;
+
+    /**
+     * 从文本抽取业务编号（大写、去重、保序、最多 {@value CODE_MAX_COUNT} 个）。
+     * 包级可见以便单测。写入与检索两侧使用同一实现，保证抽取口径一致。
+     */
+    static List<String> extractCodes(String text) {
+        if (text == null || text.isBlank()) {
+            return List.of();
+        }
+        Set<String> unique = new LinkedHashSet<>();
+        Matcher matcher = CODE_PATTERN.matcher(text);
+        while (matcher.find() && unique.size() < CODE_MAX_COUNT) {
+            unique.add(matcher.group().toUpperCase(Locale.ROOT));
+        }
+        return new ArrayList<>(unique);
+    }
+
+    /**
+     * 含业务编号时，用 ARRAY_CONTAINS 精确查询并把命中块前置到结果最前。
+     * 无编号（普通问句）时原样返回，行为完全不变；过滤查询失败只降级为混合检索结果。
+     */
+    private List<VectorSearchResult> prependExactMatches(List<VectorSearchResult> base,
+                                                        String queryText, int topK) {
+        List<String> codes = extractCodes(queryText);
+        if (codes.isEmpty()) {
+            return base;
+        }
+        List<VectorSearchResult> exact = new ArrayList<>();
+        for (String code : codes) {
+            try {
+                QueryResp response = milvusClient.query(QueryReq.builder()
+                        .collectionName(milvusConfig.getCollectionName())
+                        .filter("ARRAY_CONTAINS(" + CODES_FIELD + ", \"" + code + "\")")
+                        .outputFields(outputFields())
+                        .limit(topK)
+                        .build());
+                if (response == null || response.getQueryResults() == null) {
+                    continue;
+                }
+                for (QueryResp.QueryResult result : response.getQueryResults()) {
+                    Map<String, Object> entity = result.getEntity();
+                    if (entity == null || entity.get(CHUNK_ID_FIELD) == null) {
+                        continue;
+                    }
+                    long chunkId = ((Number) entity.get(CHUNK_ID_FIELD)).longValue();
+                    String documentId = String.valueOf(entity.get(DOCUMENT_ID_FIELD));
+                    int chunkIndex = ((Number) entity.get(CHUNK_INDEX_FIELD)).intValue();
+                    exact.add(VectorSearchResult.of(chunkIndex, 0.0, documentId, chunkId));
+                }
+            } catch (Exception e) {
+                log.warn("业务编号精确过滤失败（code={}），该编号降级为仅混合检索: {}", code, e.getMessage());
+            }
+        }
+        if (exact.isEmpty()) {
+            return base;
+        }
+        Map<Long, VectorSearchResult> merged = new LinkedHashMap<>();
+        exact.forEach(r -> merged.putIfAbsent(r.getChunkId(), r));
+        base.forEach(r -> merged.putIfAbsent(r.getChunkId(), r));
+        List<VectorSearchResult> result = new ArrayList<>(merged.values());
+        if (result.size() > topK) {
+            result = new ArrayList<>(result.subList(0, topK));
+        }
+        log.info("业务编号精确过滤命中 {} 条（codes={}），已前置", exact.size(), codes);
+        return result;
     }
 
     private static List<String> outputFields() {
