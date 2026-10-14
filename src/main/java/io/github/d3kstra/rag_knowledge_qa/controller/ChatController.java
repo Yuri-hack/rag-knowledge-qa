@@ -1,0 +1,40 @@
+package io.github.d3kstra.rag_knowledge_qa.controller;
+
+import io.github.d3kstra.rag_knowledge_qa.dto.response.StreamChatResponse;
+import io.github.d3kstra.rag_knowledge_qa.service.ChatOrchestrationService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Flux;
+
+@Slf4j
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/chat")
+public class ChatController {
+
+    private final ChatOrchestrationService chatOrchestrationService;
+
+    @GetMapping(value = "/rag/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<StreamChatResponse> ragChatStream(@RequestParam String question,
+                                                  @RequestParam(required = false) String sessionId,
+                                                  @RequestParam(defaultValue = "true") boolean rewrite) {
+        return chatOrchestrationService.chatStream(question, sessionId, rewrite)
+                .onErrorResume(e -> {
+                    log.error("RAG流式调用异常", e);
+                    return Flux.just(errorResponse(e));
+                });
+    }
+
+    private static StreamChatResponse errorResponse(Throwable e) {
+        return StreamChatResponse.builder()
+                .content("")
+                .finished(true)
+                .errorMessage("RAG流式调用异常: " + e.getMessage())
+                .build();
+    }
+}

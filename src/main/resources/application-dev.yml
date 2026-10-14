@@ -34,5 +34,5 @@ milvus:
 # 开发环境特定配置
 logging:
   level:
-    io.github.yuri_hack: DEBUG
+    io.github.d3kstra: DEBUG
     io.milvus: INFO

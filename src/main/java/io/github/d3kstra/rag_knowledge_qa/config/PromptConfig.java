@@ -1,0 +1,24 @@
+package io.github.d3kstra.rag_knowledge_qa.config;
+
+import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+@ConfigurationProperties(prefix = "rag")
+@Data
+public class PromptConfig {
+
+    private String ragPrompt;
+
+    private String dailyPrompt;
+
+    private String intentPrompt;
+
+    private String normalizePrompt;
+
+    private String adaptiveAnswerPrompt;
+
+    /** D6：多轮检索 query 改写 */
+    private String rewritePrompt;
+}

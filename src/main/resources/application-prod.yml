@@ -35,5 +35,5 @@ milvus:
 # 生产环境配置
 logging:
   level:
-    io.github.yuri_hack: INFO
+    io.github.d3kstra: INFO
     io.milvus: WARN
