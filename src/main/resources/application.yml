@@ -115,7 +115,10 @@ rag:
     top-ratio: 20
     # 邻域扩展：检索单元不变，送上下文前把命中块的相邻块一并带上（碎片化补偿）
     #   window=0 关闭；1=±1 邻块；max-total 扩展后总块数上限；top-hits 只扩展排名前 N 的命中
-    neighbor-window: 1
+    #   ⚠️ 默认 0（关闭）：单次扫描曾显示多跳 3/5→5/5，但 4 次重复未复现
+    #   （n0={4,4,3,3} vs n1={4,3,3,5}，逐题双向翻转，净差 1/20 → 噪声）。
+    #   能力保留可配置；如需重新评估，需把多跳题集从 5 题扩到 20-30 题（当前单题波动 ±1）。
+    neighbor-window: 0
     neighbor-max-total: 30
     neighbor-top-hits: 5
     hybrid:
