@@ -124,7 +124,11 @@ rag:
   agent:
     search:
       top-k: 50
-      top-ratio: 30
+      # 每次 search_knowledge 返回的 chunk 数。实测（CH01-08 各 3 次）：
+      #   K=10 → 9/24 (37%, 30k token)；K=20 → 19/24 (79%, 39k)；K=30 → 14/24 (58%, 54k)
+      #   → K=20 严格支配 K=30（更准且 token 低 27%）；K=10 失败是因为检索预算(3)已打满、
+      #     没有空间"小 K + 多轮迭代"补偿（三组的检索次数均 3.1~3.4/题，贴着预算）
+      top-ratio: 20
   # D6 会话记忆
   memory:
     max-turns: 3
