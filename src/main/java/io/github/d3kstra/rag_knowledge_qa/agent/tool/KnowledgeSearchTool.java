@@ -77,8 +77,11 @@ public class KnowledgeSearchTool implements Tool {
             // 需要的是内容与来源。见 docs/milvus-2.5-upgrade-checklist.md 迁移实施记录。
             sb.append("【").append(i++).append("】《").append(r.getFileName())
                     .append("》 documentId=").append(r.getDocumentId())
-                    .append(" chunk#").append(r.getChunkIndex())
-                    .append('\n');
+                    .append(" chunk#").append(r.getChunkIndex());
+            if (Boolean.TRUE.equals(r.getNeighbor())) {
+                sb.append("（邻接片段）");   // 邻域扩展补入：非直接命中，但可能含上文/下文
+            }
+            sb.append('\n');
             sb.append(r.getContent() == null ? "" : r.getContent()).append('\n');
         }
         return sb.toString();

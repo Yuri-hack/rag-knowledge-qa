@@ -13,6 +13,7 @@ public class KnowledgeSearchResult {
     private Double rerankScore;     // rerank分数
     private Long chunkId;           // 块id
     private Double lexicalScore;    // BM25 词法分数（仅词法通道命中时有值）
+    private Boolean neighbor;       // true=邻域扩展补入的相邻块（非直接命中）
 
     public static KnowledgeSearchResult from(VectorSearchResult vectorResult,
                                                         DocumentChunk documentChunk) {

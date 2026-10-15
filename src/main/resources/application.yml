@@ -105,12 +105,19 @@ rag:
   #   lexical-top-k   词法候选数；max-candidates 送 rerank 上限（reranker 侧硬上限 50）
   #   rescue-count    词法 top-N 被 rerank 挤出最终结果时强行补回的条数
   #   index-ttl-seconds 词法索引重建周期（与上传进程解耦，靠 TTL 感知新增语料）
-  # 检索漏斗（2026-10-14 深池实验后定为默认）：top-k=召回池 N；top-ratio 语义见 SearchRequest
-  #   >1 视为进上下文的绝对条数 K（当前 10）；0<x<1 按比例截断；<=0 不截断
-  #   实测（20 题）：N=10/K=5 → N=20/K=10 使基线 14/20→16/20、单跳无损、延迟不变、token +61%
+  # 检索漏斗：top-k=召回池 N（送 cross-encoder 重排，重排侧硬上限 50）；top-ratio=最终进上下文的条数 K
+  #   >1 视为绝对条数；0<x<1 按比例截断；<=0 不截断
+  #   实测（20 题漏斗，N=50 固定）：K=10 → 18/20（3.5k token）；K=20 → 19/20（5.8k）；K=50 → 19/20（11.5k）
+  #   → K=20 是性价比拐点（K=50 同分但 token 翻倍）
+  #   多跳（5 题 agent，K=20）：无邻域 3/5（71k token）→ 有邻域 5/5（54k token）
   search:
-    top-k: 20
-    top-ratio: 10
+    top-k: 50
+    top-ratio: 20
+    # 邻域扩展：检索单元不变，送上下文前把命中块的相邻块一并带上（碎片化补偿）
+    #   window=0 关闭；1=±1 邻块；max-total 扩展后总块数上限；top-hits 只扩展排名前 N 的命中
+    neighbor-window: 1
+    neighbor-max-total: 30
+    neighbor-top-hits: 5
     hybrid:
       enabled: true
       # milvus = 服务端原生混合检索(稠密+BM25稀疏+RRF)；local = 进程内 BM25 通道(A/B 对照用)
@@ -121,8 +128,8 @@ rag:
       index-ttl-seconds: 300
   agent:
     search:
-      top-k: 20
-      top-ratio: 10
+      top-k: 50
+      top-ratio: 30
   # D6 会话记忆
   memory:
     max-turns: 3

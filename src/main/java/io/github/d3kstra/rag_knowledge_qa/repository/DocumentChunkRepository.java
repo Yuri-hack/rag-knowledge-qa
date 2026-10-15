@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -21,4 +22,7 @@ public interface DocumentChunkRepository extends JpaRepository<DocumentChunk, Lo
     List<DocumentChunk> findByIdIn(List<Long> chunkIds);
 
     List<DocumentChunk> findByDocumentIdOrderByChunkIndexAsc(String documentId);
+
+    /** 邻域扩展用：按文件名 + 若干块序号批量取相邻块 */
+    List<DocumentChunk> findByFileNameAndChunkIndexIn(String fileName, Collection<Integer> chunkIndexes);
 }

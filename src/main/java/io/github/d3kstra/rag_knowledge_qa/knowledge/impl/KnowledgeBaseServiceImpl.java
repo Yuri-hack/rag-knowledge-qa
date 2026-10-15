@@ -32,6 +32,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -78,6 +80,18 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
      */
     @Value("${rag.search.hybrid.provider:milvus}")
     private String hybridProvider;
+
+    /** 邻域扩展：0=关闭；1=±1 邻块。检索单元不变，只扩上下文（见 expandNeighbors 注释） */
+    @Value("${rag.search.neighbor-window:0}")
+    private int neighborWindow;
+
+    /** 邻域扩展后总块数上限 */
+    @Value("${rag.search.neighbor-max-total:30}")
+    private int neighborMaxTotal;
+
+    /** 只对排名前 N 的命中做邻域扩展（避免噪声扩散） */
+    @Value("${rag.search.neighbor-top-hits:5}")
+    private int neighborTopHits;
 
     private static final String PROVIDER_MILVUS = "milvus";
 
@@ -153,9 +167,11 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
             // 动态截断结果
             List<KnowledgeSearchResult> cut = dynamicCutOff(rerankedSearchResults, request.getTopRatio());
             // 精确匹配优先/兜底是 local 通道专用（milvus 通道的精确编号命中由服务端 BM25 路负责）
-            return hybridEnabled && !useMilvusHybrid
+            List<KnowledgeSearchResult> finalResults = hybridEnabled && !useMilvusHybrid
                     ? rescueExactMatches(cut, rerankedSearchResults, hybrid)
-                    : cut;
+                    : new ArrayList<>(cut);
+            // 邻域扩展：检索单元不变，只在送上下文前补齐相邻块（window<=0 时为无操作）
+            return expandNeighbors(finalResults);
         } catch (Exception e) {
             log.error("知识检索失败: {}", request.getQuery(), e);
             throw new RuntimeException("知识检索失败: " + e.getMessage(), e);
@@ -327,6 +343,79 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         } else {
             result.addAll(rescuedHits);
         }
+        return result;
+    }
+
+    /**
+     * 邻域扩展（neighbor expansion）。
+     *
+     * 检索单元保持不变（因此 gold 标注与历史基线仍可比），只在构造上下文前，把排名前
+     * {@code neighborTopHits} 个命中块的相邻块（±neighborWindow）一并带上。
+     *
+     * 动机：本语料 chunk 非常碎（实测 45% 的 chunk < 80 字，最小 12 字），
+     * 事实与它的条件/主语可能落在相邻块里；而检索精度已到顶（hit@50 = 38/38 = 100%），
+     * 缺的不是召回而是"单块的信息自足性"。邻域扩展直接治这个病，且不破坏任何已有评测资产。
+     *
+     * {@code neighborWindow <= 0} 时原样返回（与开启前行为完全一致）。
+     */
+    List<KnowledgeSearchResult> expandNeighbors(List<KnowledgeSearchResult> hits) {
+        if (neighborWindow <= 0 || hits == null || hits.isEmpty()) {
+            return hits;
+        }
+        List<KnowledgeSearchResult> expanded = new ArrayList<>();
+        Set<Long> seen = new HashSet<>();
+        for (KnowledgeSearchResult hit : hits) {
+            if (hit.getChunkId() != null) {
+                seen.add(hit.getChunkId());
+            }
+        }
+        int rank = 0;
+        for (KnowledgeSearchResult hit : hits) {
+            expanded.add(hit);
+            boolean expandable = rank < neighborTopHits
+                    && hit.getFileName() != null && hit.getChunkIndex() != null;
+            rank++;
+            if (!expandable || expanded.size() >= neighborMaxTotal) {
+                continue;
+            }
+            List<Integer> wanted = new ArrayList<>();
+            for (int d = 1; d <= neighborWindow; d++) {
+                if (hit.getChunkIndex() - d >= 0) {
+                    wanted.add(hit.getChunkIndex() - d);
+                }
+                wanted.add(hit.getChunkIndex() + d);
+            }
+            // 复制一份再排序：不假设 repository 返回可变列表（JPA 通常可变，但接口未承诺）
+            List<DocumentChunk> neighbors = new ArrayList<>(chunkRepository
+                    .findByFileNameAndChunkIndexIn(hit.getFileName(), wanted));
+            neighbors.sort(Comparator.comparing(DocumentChunk::getChunkIndex,
+                    Comparator.nullsLast(Comparator.naturalOrder())));
+            for (DocumentChunk neighbor : neighbors) {
+                if (expanded.size() >= neighborMaxTotal) {
+                    break;
+                }
+                if (neighbor.getId() == null || !seen.add(neighbor.getId())) {
+                    continue;   // 已是命中块或已补过，不重复
+                }
+                expanded.add(toNeighbor(neighbor));
+            }
+        }
+        if (expanded.size() > hits.size()) {
+            log.info("邻域扩展: 命中 {} 条 → 扩展后 {} 条 (window={}, topHits={}, maxTotal={})",
+                    hits.size(), expanded.size(), neighborWindow, neighborTopHits, neighborMaxTotal);
+        }
+        return expanded;
+    }
+
+    /** 相邻块 → 结果对象（标记 neighbor=true，供工具输出标注，避免模型误以为是直接命中） */
+    private static KnowledgeSearchResult toNeighbor(DocumentChunk chunk) {
+        KnowledgeSearchResult result = new KnowledgeSearchResult();
+        result.setChunkId(chunk.getId());
+        result.setDocumentId(chunk.getDocumentId());
+        result.setFileName(chunk.getFileName());
+        result.setChunkIndex(chunk.getChunkIndex());
+        result.setContent(chunk.getContent());
+        result.setNeighbor(true);
         return result;
     }
 
