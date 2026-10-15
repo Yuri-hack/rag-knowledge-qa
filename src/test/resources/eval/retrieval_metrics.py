@@ -62,8 +62,10 @@ def main():
     for qid, a in questions.items():
         if a.get("status") == "excluded":
             continue
-        gold_chunks = [(g["documentId"], g["chunkIndex"]) for g in a["goldChunks"]]
-        gold_docs = {g["documentId"] for g in a["goldChunks"]}  # 检索结果用 documentId，须按 ID 比对
+        # 按 (fileName, chunkIndex) 比对：documentId 每次全量重建都会重新生成（DOC_<时间戳>_<随机>），
+        # 早期按 documentId 比对会导致重建后全部 miss（2026-10-15 实测全 0/38 即此因）
+        gold_chunks = [(g["fileName"], g["chunkIndex"]) for g in a["goldChunks"]]
+        gold_docs = {g["fileName"] for g in a["goldChunks"]}
         if not gold_chunks:
             continue
         t0 = time.time()
@@ -73,13 +75,13 @@ def main():
         except Exception as e:  # noqa: BLE001
             got, error = [], str(e)[:80]
 
-        key_to_rank = {(d, c): i + 1 for i, (d, c, _, _) in enumerate(got)}
+        key_to_rank = {(f, c): i + 1 for i, (_, c, f, _) in enumerate(got)}
         ranks = [key_to_rank.get(k) for k in gold_chunks]
         best = min([r for r in ranks if r], default=None)
         doc_hit_ranks = {}
-        for i, (d, c, _, _) in enumerate(got, 1):
-            if d in gold_docs and d not in doc_hit_ranks:
-                doc_hit_ranks[d] = i
+        for i, (_, c, f, _) in enumerate(got, 1):
+            if f in gold_docs and f not in doc_hit_ranks:
+                doc_hit_ranks[f] = i
 
         def chunk_recall(k):
             return sum(1 for r in ranks if r and r <= k) / len(gold_chunks)
