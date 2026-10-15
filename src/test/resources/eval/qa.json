@@ -603,6 +603,154 @@
       ],
       "judgeRequired": false,
       "notes": "数据键桥接多跳（batch6）：问题不含资产编号，需先检索《2026年新增办公设备配发通知》取得 YC-HY-2026-0003，再按编号检索《固定资产保修期限登记表》对应行。探针判据：桥接文档可检索 + 目标行未被单次检索捞出。"
+    },
+    {
+      "id": "CL01",
+      "category": "code_lookup",
+      "question": "资产编号 YC-QT-2026-0030 的设备，整机保修期是多久？",
+      "expectedFacts": [
+        "48个月"
+      ],
+      "judgeRequired": false,
+      "notes": "精确 token 查找题（code_lookup）；探针：登记表行可检索（排名 2）；资产 YC-QT-2026-0030，整机期限 48 个月"
+    },
+    {
+      "id": "CL02",
+      "category": "code_lookup",
+      "question": "资产编号 YC-HJ-2026-0017 的设备，屏幕保修期是多久？",
+      "expectedFacts": [
+        "6个月"
+      ],
+      "judgeRequired": false,
+      "notes": "精确 token 查找题（code_lookup）；探针：登记表行可检索（排名 2）；资产 YC-HJ-2026-0017，屏幕期限 6 个月"
+    },
+    {
+      "id": "CL03",
+      "category": "code_lookup",
+      "question": "资产编号 YC-QT-2026-0029 的设备，屏幕保修期是多久？",
+      "expectedFacts": [
+        "6个月"
+      ],
+      "judgeRequired": false,
+      "notes": "精确 token 查找题（code_lookup）；探针：登记表行可检索（排名 1）；资产 YC-QT-2026-0029，屏幕期限 6 个月"
+    },
+    {
+      "id": "CL04",
+      "category": "code_lookup",
+      "question": "资产编号 YC-AF-2026-0012 的设备，整机保修期是多久？",
+      "expectedFacts": [
+        "60个月"
+      ],
+      "judgeRequired": false,
+      "notes": "精确 token 查找题（code_lookup）；探针：登记表行可检索（排名 1）；资产 YC-AF-2026-0012，整机期限 60 个月"
+    },
+    {
+      "id": "CL05",
+      "category": "code_lookup",
+      "question": "资产编号 YC-CF-2026-0009 的设备，整机保修期是多久？",
+      "expectedFacts": [
+        "60个月"
+      ],
+      "judgeRequired": false,
+      "notes": "精确 token 查找题（code_lookup）；探针：登记表行可检索（排名 2）；资产 YC-CF-2026-0009，整机期限 60 个月"
+    },
+    {
+      "id": "CL06",
+      "category": "code_lookup",
+      "question": "资产编号 YC-HJ-2026-0016 的设备，整机保修期是多久？",
+      "expectedFacts": [
+        "60个月"
+      ],
+      "judgeRequired": false,
+      "notes": "精确 token 查找题（code_lookup）；探针：登记表行可检索（排名 2）；资产 YC-HJ-2026-0016，整机期限 60 个月"
+    },
+    {
+      "id": "CH01",
+      "category": "multihop_chain",
+      "question": "培训中心的电子白板 鸿合 HD-I879，资产编号和整机保修期分别是什么？",
+      "expectedFacts": [
+        "YC-PX-2026-0022",
+        "60个月"
+      ],
+      "judgeRequired": false,
+      "notes": "精确 token 查找题（multihop_chain）；探针：桥接可检索（排名 1）+ 登记表未泄漏；资产 YC-PX-2026-0022，整机期限 60 个月"
+    },
+    {
+      "id": "CH02",
+      "category": "multihop_chain",
+      "question": "行政部的MaxHub 会议平板 V6，资产编号和整机保修期分别是什么？",
+      "expectedFacts": [
+        "YC-HY-2026-0001",
+        "24个月"
+      ],
+      "judgeRequired": false,
+      "notes": "精确 token 查找题（multihop_chain）；探针：桥接可检索（排名 1）+ 登记表未泄漏；资产 YC-HY-2026-0001，整机期限 24 个月"
+    },
+    {
+      "id": "CH03",
+      "category": "multihop_chain",
+      "question": "信息安全部的大华监控摄像头 IPC-HFW5442，资产编号和电池保修期分别是什么？",
+      "expectedFacts": [
+        "YC-AF-2026-0013",
+        "18个月"
+      ],
+      "judgeRequired": false,
+      "notes": "精确 token 查找题（multihop_chain）；探针：桥接可检索（排名 2）+ 登记表未泄漏；资产 YC-AF-2026-0013，电池期限 18 个月"
+    },
+    {
+      "id": "CH04",
+      "category": "multihop_chain",
+      "question": "数据中心的UPS 电源 山特 C10KS，资产编号和电池保修期分别是什么？",
+      "expectedFacts": [
+        "YC-HJ-2026-0018",
+        "18个月"
+      ],
+      "judgeRequired": false,
+      "notes": "精确 token 查找题（multihop_chain）；探针：桥接可检索（排名 5）+ 登记表未泄漏；资产 YC-HJ-2026-0018，电池期限 18 个月"
+    },
+    {
+      "id": "CH05",
+      "category": "multihop_chain",
+      "question": "行政部的扫地机器人 石头 G20，资产编号和电池保修期分别是什么？",
+      "expectedFacts": [
+        "YC-QJ-2026-0020",
+        "18个月"
+      ],
+      "judgeRequired": false,
+      "notes": "精确 token 查找题（multihop_chain）；探针：桥接可检索（排名 1）+ 登记表未泄漏；资产 YC-QJ-2026-0020，电池期限 18 个月"
+    },
+    {
+      "id": "CH06",
+      "category": "multihop_chain",
+      "question": "行政部的商用吸尘器 凯驰 NT38，资产编号和电池保修期分别是什么？",
+      "expectedFacts": [
+        "YC-QJ-2026-0021",
+        "18个月"
+      ],
+      "judgeRequired": false,
+      "notes": "精确 token 查找题（multihop_chain）；探针：桥接可检索（排名 2）+ 登记表未泄漏；资产 YC-QJ-2026-0021，电池期限 18 个月"
+    },
+    {
+      "id": "CH07",
+      "category": "multihop_chain",
+      "question": "行政部的访客登记一体机 汉王 Eface，资产编号和电池保修期分别是什么？",
+      "expectedFacts": [
+        "YC-QT-2026-0028",
+        "18个月"
+      ],
+      "judgeRequired": false,
+      "notes": "精确 token 查找题（multihop_chain）；探针：桥接可检索（排名 1）+ 登记表未泄漏；资产 YC-QT-2026-0028，电池期限 18 个月"
+    },
+    {
+      "id": "CH08",
+      "category": "multihop_chain",
+      "question": "人力资源部的指纹考勤机 中控 S30，资产编号和屏幕保修期分别是什么？",
+      "expectedFacts": [
+        "YC-AF-2026-0015",
+        "12个月"
+      ],
+      "judgeRequired": false,
+      "notes": "精确 token 查找题（multihop_chain）；探针：桥接可检索（排名 1）+ 登记表未泄漏；资产 YC-AF-2026-0015，屏幕期限 12 个月"
     }
   ]
 }

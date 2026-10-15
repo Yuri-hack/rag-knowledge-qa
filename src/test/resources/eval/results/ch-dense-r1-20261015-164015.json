@@ -1,0 +1,318 @@
+{
+ "label": "ch-dense-r1",
+ "endpoint": "agent",
+ "promptVersion": "v0.4",
+ "rewrite": true,
+ "cache": {
+  "disabledDuringRun": true,
+  "flushedKeys": 0,
+  "remainingAfterFlush": 0
+ },
+ "finishedAt": "20261015-164015",
+ "rows": [
+  {
+   "id": "CH01",
+   "category": "multihop_chain",
+   "question": "培训中心的电子白板 鸿合 HD-I879，资产编号和整机保修期分别是什么？",
+   "passed": false,
+   "judgeRequired": false,
+   "infraError": false,
+   "infraRetries": 0,
+   "termination": "COMPLETED",
+   "toolCalls": 3,
+   "toolFailures": [],
+   "factHits": [],
+   "factsExpected": [
+    "YC-PX-2026-0022",
+    "60个月"
+   ],
+   "shouldRetrieve": true,
+   "retrievalHit": false,
+   "retrievedFiles": [
+    "N00-2026年新增办公设备配发通知",
+    "N01-固定资产保修期限登记表",
+    "M222-设备保修条款-TBH5E9-C",
+    "M248-设备保修条款-TBE79H-B",
+    "N00-2026年新增办公设备配发通知",
+    "M173-设备保修条款-NW39FH-B",
+    "M017-设备保修条款-2288H-V6",
+    "M024-设备保修条款-HL8360CDW",
+    "N00-2026年新增办公设备配发通知",
+    "M110-设备保修条款-MBDCK9-B"
+   ],
+   "tokens": 59311,
+   "ttftMs": 28106,
+   "totalMs": 28108,
+   "error": null,
+   "answer": "经过三次检索，我未能在知识库中找到关于\"鸿合 HD-I879\"电子白板的具体信息。所有检索结果都未提及该型号，也没有关于培训中心电子白板的资产编号和保修期信息。\n\n根据规则，我需要基于已有信息作答并说明知识库中未找到的部分。在检索结果中，我看到了《N01-固定资产保修期限登记表》列出了几个资产编号（如YC-AF-2022-0009、YC-AF-2022-0015等），但没有说明这些编号对应的具体设备型号。同时，多个设备保修条款文档都是针对其他型号（如HL8360CDW、LTHLMH-B等），没有HD-I879。\n\n因此，我无法提供鸿合 HD-I879电子白板的资产编号和整机保修期信息，因为这些信息在当前知识库中不存在。\n\n对于培训中心的鸿合 HD-I879 电子白板：\n- 资产编号：知识库中未找到相关信息\n- 整机保修期：知识库中未找到相关信息\n\n建议您联系信息技术部或行政部，通过固定资产系统查询该设备的具体信息，或者查看设备采购时的相关单据。"
+  },
+  {
+   "id": "CH02",
+   "category": "multihop_chain",
+   "question": "行政部的MaxHub 会议平板 V6，资产编号和整机保修期分别是什么？",
+   "passed": false,
+   "judgeRequired": false,
+   "infraError": false,
+   "infraRetries": 0,
+   "termination": "COMPLETED",
+   "toolCalls": 3,
+   "toolFailures": [],
+   "factHits": [
+    "YC-HY-2026-0001"
+   ],
+   "factsExpected": [
+    "YC-HY-2026-0001",
+    "24个月"
+   ],
+   "shouldRetrieve": true,
+   "retrievalHit": false,
+   "retrievedFiles": [
+    "M00-2026年第一季度办公设备采购通知",
+    "N00-2026年新增办公设备配发通知",
+    "N01-固定资产保修期限登记表",
+    "M255-设备保修条款-AC6BV6",
+    "M276-设备保修条款-TB6TGU",
+    "M103-设备保修条款-MNHF6H-A",
+    "M017-设备保修条款-2288H-V6",
+    "M245-设备保修条款-MBX6NQ-B",
+    "M128-设备保修条款-NWHC6P-A",
+    "M034-设备保修条款-MBK5V6-CN"
+   ],
+   "tokens": 57308,
+   "ttftMs": 28950,
+   "totalMs": 28953,
+   "error": null,
+   "answer": "根据检索结果，我找到了行政部的MaxHub会议平板V6的相关信息：\n\n1. **资产编号**：在《N00-2026年新增办公设备配发通知》中明确提到：\"会议设备：MaxHub 会议平板 V6，配发行政部，资产编号 YC-HY-2026-0001。\"\n\n2. **整机保修期**：虽然检索结果中没有直接说明MaxHub V6的保修期，但根据《N00-2026年新增办公设备配发通知》第13条：\"各资产的具体保修期限见《固定资产保修期限登记表》，以资产编号为准查询，本通知不列出具体期限。\" 同时，《N01-固定资产保修期限登记表》说明\"本表按资产编号逐台登记保修期限，是设备保修状态的唯一依据\"。\n\n然而，在提供的《N01-固定资产保修期限登记表》示例中，并没有列出资产编号 YC-HY-2026-0001 的保修期限。所有示例都是 YC-AF-2022-xxxx 格式的编号，而 MaxHub V6 的编号是 YC-HY-2026-0001。\n\n由于知识库中没有提供 YC-HY-2026-0001 这个具体资产编号对应的保修期限，我无法确定其整机保修期。根据制度规定，需要查询《固定资产保修期限登记表》才能获得准确信息，但该表在检索结果中只提供了部分示例，没有包含这个特定编号。\n\n因此，我只能确认资产编号为 YC-HY-2026-0001，但整机保修期在现有知识库中未找到。"
+  },
+  {
+   "id": "CH03",
+   "category": "multihop_chain",
+   "question": "信息安全部的大华监控摄像头 IPC-HFW5442，资产编号和电池保修期分别是什么？",
+   "passed": true,
+   "judgeRequired": false,
+   "infraError": false,
+   "infraRetries": 0,
+   "termination": "COMPLETED",
+   "toolCalls": 3,
+   "toolFailures": [],
+   "factHits": [
+    "YC-AF-2026-0013",
+    "18个月"
+   ],
+   "factsExpected": [
+    "YC-AF-2026-0013",
+    "18个月"
+   ],
+   "shouldRetrieve": true,
+   "retrievalHit": false,
+   "retrievedFiles": [
+    "N01-固定资产保修期限登记表",
+    "M164-设备保修条款-LTFATW-C",
+    "N00-2026年新增办公设备配发通知",
+    "M112-设备保修条款-NWWSGP-C",
+    "M155-设备保修条款-SVS8VW-C",
+    "M223-设备保修条款-NWFNW7",
+    "M022-设备保修条款-M479FDW-A",
+    "M285-设备保修条款-NW2HDY-CN",
+    "M057-设备保修条款-TBVVQW-CN",
+    "M249-设备保修条款-LTW48W"
+   ],
+   "tokens": 35853,
+   "ttftMs": 32959,
+   "totalMs": 32960,
+   "error": null,
+   "answer": "✅ 已在《N01-固定资产保修期限登记表》part 2 的 **块6** 中找到目标资产编号：\n\n> **YC-AF-2026-0013 | 整机 36 个月 | 电池 18 个月 | 屏幕 24 个月**\n\n该条目明确对应：\n- 资产编号：`YC-AF-2026-0013`（与《N00-2026年新增办公设备配发通知》中 IPC-HFW5442 的编号完全一致）  \n- **电池保修期：18 个月**  \n- 整机保修期：36 个月  \n- 屏幕保修期：24 个月  \n\n同时，块6 还列出了同批配发的其他设备（如 YC-AF-2026-0012 海康门禁一体机、YC-AF-2026-0014 保险柜），进一步佐证该表为 2026 年新增资产的权威保修依据。\n\n所有信息均已覆盖问题全部要素（主体：信息安全部；设备：IPC-HFW5442；字段：资产编号、电池保修期），无需进一步检索。\n\n---\n\n### ✅ 最终答案：\n- **资产编号**：`YC-AF-2026-0013`  \n- **电池保修期**：**18 个月**（自领用登记之日起算）  \n\n依据来源：  \n- 资产编号出自《N00-2026年新增办公设备配发通知》（DOC_1791995055141_1f12e60f）；  \n- 电池保修期出自《N01-固定资产保修期限登记表》（DOC_1791995055175_80eae65a）块6，为现行有效登记数据。"
+  },
+  {
+   "id": "CH04",
+   "category": "multihop_chain",
+   "question": "数据中心的UPS 电源 山特 C10KS，资产编号和电池保修期分别是什么？",
+   "passed": true,
+   "judgeRequired": false,
+   "infraError": false,
+   "infraRetries": 0,
+   "termination": "COMPLETED",
+   "toolCalls": 2,
+   "toolFailures": [],
+   "factHits": [
+    "YC-HJ-2026-0018",
+    "18个月"
+   ],
+   "factsExpected": [
+    "YC-HJ-2026-0018",
+    "18个月"
+   ],
+   "shouldRetrieve": true,
+   "retrievalHit": false,
+   "retrievedFiles": [
+    "N01-固定资产保修期限登记表",
+    "M217-设备保修条款-ACCTJQ-C",
+    "M054-设备保修条款-LTKYWT-CN",
+    "M209-设备保修条款-AC7QCS",
+    "M021-设备保修条款-ISR4331-K9",
+    "M039-设备保修条款-TBFJKT-C",
+    "M107-设备保修条款-TBQPS7-C",
+    "M178-设备保修条款-ACT6CU-CN",
+    "M077-设备保修条款-LTZ6TS-C",
+    "M154-设备保修条款-TBASQ8-CN"
+   ],
+   "tokens": 35715,
+   "ttftMs": 13927,
+   "totalMs": 13927,
+   "error": null,
+   "answer": "我已成功检索到山特C10KS UPS的资产编号和电池保修期信息。根据《N00-2026年新增办公设备配发通知》，该设备的资产编号为YC-HJ-2026-0018。在《N01-固定资产保修期限登记表》中，我找到了该资产编号对应的保修期限：整机36个月，电池18个月，屏幕24个月。\n\n因此，我可以完整回答用户的问题：\n- 山特C10KS UPS的资产编号是YC-HJ-2026-0018\n- 电池保修期是18个月\n\n所有信息均来自公司内部制度文件，无需进一步检索。"
+  },
+  {
+   "id": "CH05",
+   "category": "multihop_chain",
+   "question": "行政部的扫地机器人 石头 G20，资产编号和电池保修期分别是什么？",
+   "passed": true,
+   "judgeRequired": false,
+   "infraError": false,
+   "infraRetries": 0,
+   "termination": "COMPLETED",
+   "toolCalls": 2,
+   "toolFailures": [],
+   "factHits": [
+    "YC-QJ-2026-0020",
+    "18个月"
+   ],
+   "factsExpected": [
+    "YC-QJ-2026-0020",
+    "18个月"
+   ],
+   "shouldRetrieve": true,
+   "retrievalHit": false,
+   "retrievedFiles": [
+    "N00-2026年新增办公设备配发通知",
+    "N01-固定资产保修期限登记表",
+    "N00-2026年新增办公设备配发通知",
+    "M00-2026年第一季度办公设备采购通知",
+    "F01-行政服务事项汇编综合分册",
+    "N00-2026年新增办公设备配发通知",
+    "N00-2026年新增办公设备配发通知",
+    "M011-设备保修条款-Q27G3XMN-CN",
+    "Z-固定资产领用登记规定",
+    "M159-设备保修条款-PRUC2G-A"
+   ],
+   "tokens": 29747,
+   "ttftMs": 14315,
+   "totalMs": 14315,
+   "error": null,
+   "answer": "根据检索结果，我已找到行政部扫地机器人石头G20的资产编号和电池保修期信息：\n\n- **资产编号**：在《N00-2026年新增办公设备配发通知》（documentId=DOC_1791995055141_1f12e60f）中明确指出：“清洁设备：扫地机器人 石头 G20，配发行政部，资产编号 YC-QJ-2026-0020”。\n\n- **电池保修期**：在《N01-固定资产保修期限登记表》（documentId=DOC_1791995055175_80eae65a）的chunk#51中查到：“YC-QJ-2026-0020 | 整机 36 个月 | 电池 18 个月 | 屏幕 24 个月”。\n\n因此，行政部的扫地机器人石头G20的资产编号是 **YC-QJ-2026-0020**，电池保修期为 **18个月**。"
+  },
+  {
+   "id": "CH06",
+   "category": "multihop_chain",
+   "question": "行政部的商用吸尘器 凯驰 NT38，资产编号和电池保修期分别是什么？",
+   "passed": false,
+   "judgeRequired": false,
+   "infraError": false,
+   "infraRetries": 0,
+   "termination": "COMPLETED",
+   "toolCalls": 3,
+   "toolFailures": [],
+   "factHits": [
+    "YC-QJ-2026-0021"
+   ],
+   "factsExpected": [
+    "YC-QJ-2026-0021",
+    "18个月"
+   ],
+   "shouldRetrieve": true,
+   "retrievalHit": false,
+   "retrievedFiles": [
+    "M068-设备保修条款-NWYY83-C",
+    "M122-设备保修条款-MNBDTA-CN",
+    "N01-固定资产保修期限登记表",
+    "M199-设备保修条款-NWRZGJ-CN",
+    "M207-设备保修条款-NWP326-CN",
+    "M118-设备保修条款-NW9N8C",
+    "N00-2026年新增办公设备配发通知",
+    "M134-设备保修条款-NWBKMT-B",
+    "M265-设备保修条款-MBKJDR-CN",
+    "M259-设备保修条款-NWB2QD-2U"
+   ],
+   "tokens": 57790,
+   "ttftMs": 33681,
+   "totalMs": 33682,
+   "error": null,
+   "answer": "✅ 检索成功！在第3条结果中找到了关键信息：\n\n《N00-2026年新增办公设备配发通知》（documentId=DOC_1791995055141_1f12e60f）chunk#2 明确记载：\n\n> **清洁设备：商用吸尘器 凯驰 NT38，配发行政部，资产编号 YC-QJ-2026-0021。**\n\n✅ 资产编号已确认：**YC-QJ-2026-0021**\n\n⚠️ 但该通知未说明电池保修期；仅在 chunk#4 和 chunk#16 中提示：\n> “各资产的具体保修期限见《固定资产保修期限登记表》，以资产编号为准查询，本通知不列出具体期限。”\n\n而此前检索到的《N01-固定资产保修期限登记表》（documentId=DOC_1791995055175_80eae65a）中，**仅列出了 YC-AF-2022-xxxx 格式的旧资产编号（2022年批次），未包含本次新配发的 YC-QJ-2026-0021**。\n\n根据规则：\n- 已用满3次 search_knowledge（第1次泛搜、第2次加“行政部”限定、第3次查“台账/验收单”），必须作答；\n- 知识库中**有资产编号，无对应保修期记录**；\n- 《Z-固定资产报修与保修管理办法》（doc#8）强调：“必须使用资产编号查询登记表”，且“不得依据设备名称或型号推断”——因此**不能套用其他凯驰型号或类似清洁设备的保修期**；\n- 该资产为2026年新配发，其保修期应已录入《固定资产保修期限登记表》，但当前知识库版本（2026年4月2日发布）未收录该编号，属数据更新滞后。\n\n✅ 结论（严格依据知识库）：\n- **资产编号：YC-QJ-2026-0021**（来源：《N00-2026年新增办公设备配发通知》）\n- **电池保修期：知识库中未找到**。《固定资产保修期限登记表》未收录该资产编号，其他文档亦无对应条款。需通过固定资产系统或联系行政部资产管理员查询最新登记表。\n\n（注：按制度要求，该设备保修期自“领用登记之日”起算，非采购日或配发日；实际保修时长须以系统中该编号对应的登记日期+登记表所载电池月数为准。）\n\n如需进一步操作，建议：\n- 登录固定资产系统，搜索资产编号 YC-QJ-2026-0021 查看完整保修信息；\n- 或提交 OA 行政服务工单，注明“查询资产 YC-QJ-2026-0021 电池保修期”。"
+  },
+  {
+   "id": "CH07",
+   "category": "multihop_chain",
+   "question": "行政部的访客登记一体机 汉王 Eface，资产编号和电池保修期分别是什么？",
+   "passed": true,
+   "judgeRequired": false,
+   "infraError": false,
+   "infraRetries": 0,
+   "termination": "COMPLETED",
+   "toolCalls": 4,
+   "toolFailures": [],
+   "factHits": [
+    "YC-QT-2026-0028",
+    "18个月"
+   ],
+   "factsExpected": [
+    "YC-QT-2026-0028",
+    "18个月"
+   ],
+   "shouldRetrieve": true,
+   "retrievalHit": false,
+   "retrievedFiles": [
+    "N00-2026年新增办公设备配发通知",
+    "N01-固定资产保修期限登记表",
+    "M00-2026年第一季度办公设备采购通知",
+    "N00-2026年新增办公设备配发通知",
+    "N00-2026年新增办公设备配发通知",
+    "Z-固定资产报修与保修管理办法",
+    "M231-设备保修条款-ACE747-A",
+    "N00-2026年新增办公设备配发通知",
+    "M222-设备保修条款-TBH5E9-C",
+    "M248-设备保修条款-TBE79H-B"
+   ],
+   "tokens": 66919,
+   "ttftMs": 39875,
+   "totalMs": 39876,
+   "error": null,
+   "answer": "检索成功！在【1】和【2】中明确查到：\n\n> **YC-QT-2026-0028 | 整机 36 个月 | 电池 18 个月 | 屏幕 24 个月**\n\n该条目出自《N01-固定资产保修期限登记表》（documentId=DOC_1791995055175_80eae65a），且上下文显示其为“前台设备”类别，与“访客登记一体机 汉王 Eface”配发行政部、资产编号 YC-QT-2026-0028 完全一致。\n\n✅ **结论**：\n- **资产编号**：YC-QT-2026-0028（来自《N00-2026年新增办公设备配发通知》【2】）  \n- **电池保修期**：**18 个月**（来自《N01-固定资产保修期限登记表》【1】【2】）\n\n所有信息均源自公司现行制度文档，覆盖问题全部限定词（行政部、汉王 Eface、2026年配发），无冲突，无需推断。\n\n---  \n**最终答案**：  \n- 行政部的访客登记一体机“汉王 Eface”的**资产编号是 YC-QT-2026-0028**；  \n- 其**电池保修期为 18 个月**（自领用登记之日起算）。"
+  },
+  {
+   "id": "CH08",
+   "category": "multihop_chain",
+   "question": "人力资源部的指纹考勤机 中控 S30，资产编号和屏幕保修期分别是什么？",
+   "passed": false,
+   "judgeRequired": false,
+   "infraError": false,
+   "infraRetries": 0,
+   "termination": "COMPLETED",
+   "toolCalls": 3,
+   "toolFailures": [],
+   "factHits": [],
+   "factsExpected": [
+    "YC-AF-2026-0015",
+    "12个月"
+   ],
+   "shouldRetrieve": true,
+   "retrievalHit": false,
+   "retrievedFiles": [
+    "N00-2026年新增办公设备配发通知",
+    "M013-设备保修条款-T27H-30",
+    "M023-设备保修条款-C3830i-A",
+    "N01-固定资产保修期限登记表",
+    "M074-设备保修条款-SVHRMM-B",
+    "M030-设备保修条款-SP11-2IN1",
+    "N00-2026年新增办公设备配发通知",
+    "M015-设备保修条款-NF5280M7-S",
+    "M094-设备保修条款-PRHBCN-CN",
+    "M214-设备保修条款-SVJTHH-C"
+   ],
+   "tokens": 57786,
+   "ttftMs": 19872,
+   "totalMs": 19873,
+   "error": null,
+   "answer": "经过三次检索，我未能在知识库中找到关于“人力资源部的指纹考勤机 中控 S30”的资产编号和屏幕保修期的具体信息。检索结果中没有提及“中控 S30”型号，也没有明确列出人力资源部该设备的资产编号。\n\n根据现有信息：\n- 《N00-2026年新增办公设备配发通知》提到人力资源部配发了“证件扫描仪 富士通 fi-7160”，资产编号为 YC-QT-2026-0030，但未提及其指纹考勤机。\n- 《N01-固定资产保修期限登记表》列出了部分资产编号及对应保修期，但未包含“中控 S30”。\n- 所有设备保修条款文档均未覆盖“中控 S30”这一型号。\n\n因此，知识库中**未找到**人力资源部指纹考勤机中控S30的资产编号和屏幕保修期。\n\n建议：  \n- 查询固定资产管理系统，按设备名称或使用部门筛选；  \n- 联系信息技术部或行政部获取该设备的领用登记记录；  \n- 检查设备本体或采购/验收单据上的资产标签。\n\n如需进一步协助（例如调取某份文档全文），请告知。"
+  }
+ ]
+}

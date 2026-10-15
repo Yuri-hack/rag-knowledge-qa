@@ -1,0 +1,236 @@
+{
+ "label": "cl-dense-r3",
+ "endpoint": "baseline",
+ "promptVersion": "rag-32c87018",
+ "rewrite": true,
+ "cache": {
+  "disabledDuringRun": true,
+  "flushedKeys": 6,
+  "remainingAfterFlush": 0
+ },
+ "finishedAt": "20261015-162259",
+ "rows": [
+  {
+   "id": "CL01",
+   "category": "code_lookup",
+   "question": "资产编号 YC-QT-2026-0030 的设备，整机保修期是多久？",
+   "passed": true,
+   "judgeRequired": false,
+   "infraError": false,
+   "infraRetries": 0,
+   "termination": null,
+   "toolCalls": 0,
+   "toolFailures": [],
+   "factHits": [
+    "48个月"
+   ],
+   "factsExpected": [
+    "48个月"
+   ],
+   "shouldRetrieve": true,
+   "retrievalHit": false,
+   "retrievedFiles": [
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表"
+   ],
+   "tokens": 8351,
+   "ttftMs": 1838,
+   "totalMs": 4764,
+   "error": null,
+   "answer": "资产编号 **YC-QT-2026-0030** 的设备，整机保修期为 **48 个月**。\n\n依据：上下文明确列出  \n`YC-QT-2026-0030 | 整机 48 个月 | 电池 24 个月 | 屏幕 24 个月`  \n\n该信息属于《固定资产保修期限登记表》中“保修期限明细”部分，适用范围为北京总部及各子公司，现行有效（表头注明日期为“2026 年 4 月 2 日”）。"
+  },
+  {
+   "id": "CL02",
+   "category": "code_lookup",
+   "question": "资产编号 YC-HJ-2026-0017 的设备，屏幕保修期是多久？",
+   "passed": true,
+   "judgeRequired": false,
+   "infraError": false,
+   "infraRetries": 0,
+   "termination": null,
+   "toolCalls": 0,
+   "toolFailures": [],
+   "factHits": [
+    "6个月"
+   ],
+   "factsExpected": [
+    "6个月"
+   ],
+   "shouldRetrieve": true,
+   "retrievalHit": false,
+   "retrievedFiles": [
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表"
+   ],
+   "tokens": 8339,
+   "ttftMs": 1899,
+   "totalMs": 3621,
+   "error": null,
+   "answer": "资产编号 **YC-HJ-2026-0017** 的设备，屏幕保修期为 **6 个月**。\n\n依据：上下文明确列出  \n`YC-HJ-2026-0017 | 整机 12 个月 | 电池 12 个月 | 屏幕 6 个月`"
+  },
+  {
+   "id": "CL03",
+   "category": "code_lookup",
+   "question": "资产编号 YC-QT-2026-0029 的设备，屏幕保修期是多久？",
+   "passed": true,
+   "judgeRequired": false,
+   "infraError": false,
+   "infraRetries": 0,
+   "termination": null,
+   "toolCalls": 0,
+   "toolFailures": [],
+   "factHits": [
+    "6个月"
+   ],
+   "factsExpected": [
+    "6个月"
+   ],
+   "shouldRetrieve": true,
+   "retrievalHit": false,
+   "retrievedFiles": [
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表"
+   ],
+   "tokens": 8340,
+   "ttftMs": 1894,
+   "totalMs": 3634,
+   "error": null,
+   "answer": "资产编号 **YC-QT-2026-0029** 的设备，屏幕保修期为 **6 个月**。\n\n依据：上下文明确列出  \n`YC-QT-2026-0029 | 整机 12 个月 | 电池 12 个月 | 屏幕 6 个月`。"
+  },
+  {
+   "id": "CL04",
+   "category": "code_lookup",
+   "question": "资产编号 YC-AF-2026-0012 的设备，整机保修期是多久？",
+   "passed": true,
+   "judgeRequired": false,
+   "infraError": false,
+   "infraRetries": 0,
+   "termination": null,
+   "toolCalls": 0,
+   "toolFailures": [],
+   "factHits": [
+    "60个月"
+   ],
+   "factsExpected": [
+    "60个月"
+   ],
+   "shouldRetrieve": true,
+   "retrievalHit": false,
+   "retrievedFiles": [
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表"
+   ],
+   "tokens": 8324,
+   "ttftMs": 1908,
+   "totalMs": 4242,
+   "error": null,
+   "answer": "资产编号 **YC-AF-2026-0012** 的设备，整机保修期为 **60 个月**。\n\n依据来源：  \n`YC-AF-2026-0012 | 整机 60 个月 | 电池 24 个月 | 屏幕 36 个月`（见上下文首段）  \n该条目明确登记于《固定资产保修期限登记表》适用范围内，且无冲突版本。"
+  },
+  {
+   "id": "CL05",
+   "category": "code_lookup",
+   "question": "资产编号 YC-CF-2026-0009 的设备，整机保修期是多久？",
+   "passed": true,
+   "judgeRequired": false,
+   "infraError": false,
+   "infraRetries": 0,
+   "termination": null,
+   "toolCalls": 0,
+   "toolFailures": [],
+   "factHits": [
+    "60个月"
+   ],
+   "factsExpected": [
+    "60个月"
+   ],
+   "shouldRetrieve": true,
+   "retrievalHit": false,
+   "retrievedFiles": [
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表"
+   ],
+   "tokens": 8313,
+   "ttftMs": 1950,
+   "totalMs": 3954,
+   "error": null,
+   "answer": "资产编号 **YC-CF-2026-0009** 的设备，整机保修期为 **60 个月**。\n\n依据来源：  \n`YC-CF-2026-0009 | 整机 60 个月 | 电池 24 个月 | 屏幕 36 个月`  \n（见《固定资产保修期限登记表》上下文条目）"
+  },
+  {
+   "id": "CL06",
+   "category": "code_lookup",
+   "question": "资产编号 YC-HJ-2026-0016 的设备，整机保修期是多久？",
+   "passed": true,
+   "judgeRequired": false,
+   "infraError": false,
+   "infraRetries": 0,
+   "termination": null,
+   "toolCalls": 0,
+   "toolFailures": [],
+   "factHits": [
+    "60个月"
+   ],
+   "factsExpected": [
+    "60个月"
+   ],
+   "shouldRetrieve": true,
+   "retrievalHit": false,
+   "retrievedFiles": [
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表",
+    "N01-固定资产保修期限登记表"
+   ],
+   "tokens": 8340,
+   "ttftMs": 1859,
+   "totalMs": 4557,
+   "error": null,
+   "answer": "资产编号 **YC-HJ-2026-0016** 的设备，整机保修期为 **60 个月**。\n\n依据：上下文明确列出  \n`YC-HJ-2026-0016 | 整机 60 个月 | 电池 24 个月 | 屏幕 36 个月`  \n该条目出自《固定资产保修期限登记表》（云启科技 · 2026 年 4 月 2 日 · 行政部 · 信息技术部）。"
+  }
+ ]
+}
