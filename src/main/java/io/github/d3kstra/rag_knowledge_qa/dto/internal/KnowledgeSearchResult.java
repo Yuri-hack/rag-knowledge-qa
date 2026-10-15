@@ -12,7 +12,6 @@ public class KnowledgeSearchResult {
     private String documentId;      // 文档ID
     private Double rerankScore;     // rerank分数
     private Long chunkId;           // 块id
-    private Double lexicalScore;    // BM25 词法分数（仅词法通道命中时有值）
     private Boolean neighbor;       // true=邻域扩展补入的相邻块（非直接命中）
 
     public static KnowledgeSearchResult from(VectorSearchResult vectorResult,
@@ -27,15 +26,5 @@ public class KnowledgeSearchResult {
         return result;
     }
 
-    /** 由词法通道命中构造（无稠密相似度） */
-    public static KnowledgeSearchResult fromChunk(DocumentChunk documentChunk, Double lexicalScore) {
-        KnowledgeSearchResult result = new KnowledgeSearchResult();
-        result.setContent(documentChunk.getContent());
-        result.setFileName(documentChunk.getFileName());
-        result.setChunkIndex(documentChunk.getChunkIndex());
-        result.setDocumentId(documentChunk.getDocumentId());
-        result.setChunkId(documentChunk.getId());
-        result.setLexicalScore(lexicalScore);
-        return result;
-    }
+
 }

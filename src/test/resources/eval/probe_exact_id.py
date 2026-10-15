@@ -41,8 +41,7 @@ def main():
         if contains and hit_rank is None:
             hit_rank = i
         print(f"  {i:2d}. 含目标编号={'✓' if contains else '✗'} "
-              f"词法分={r.get('lexicalScore')} rerank={r.get('rerankScore')} "
-              f"| {content[:50].strip()}")
+              f"rerank={r.get('rerankScore')} | {content[:50].strip()}")
     print()
     if hit_rank:
         print(f"结果：目标编号命中，排名第 {hit_rank} 位 → 通过（K≥{hit_rank} 即可作答）")

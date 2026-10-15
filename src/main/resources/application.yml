@@ -100,11 +100,6 @@ rag:
   chunk:
     size: 512
     overlap: 100
-  # 混合检索：稠密 + BM25 词法通道。动机见 results/multihop-bridge-20261014.md：
-  # 稠密向量对无意义 token（资产编号/单号）无法精确匹配，需词法通道 + 精确匹配兜底。
-  #   lexical-top-k   词法候选数；max-candidates 送 rerank 上限（reranker 侧硬上限 50）
-  #   rescue-count    词法 top-N 被 rerank 挤出最终结果时强行补回的条数
-  #   index-ttl-seconds 词法索引重建周期（与上传进程解耦，靠 TTL 感知新增语料）
   # 检索漏斗：top-k=召回池 N（送 cross-encoder 重排，重排侧硬上限 50）；top-ratio=最终进上下文的条数 K
   #   >1 视为绝对条数；0<x<1 按比例截断；<=0 不截断
   #   实测（20 题漏斗，N=50 固定，各 3 次重复**零方差**）：K=10 → 18/18/18（3.46k token）；K=20 → 19/19/19（5.86k）；K=50 → 19/20（11.5k）
@@ -123,13 +118,9 @@ rag:
     neighbor-max-total: 30
     neighbor-top-hits: 5
     hybrid:
+      # true  = Milvus 服务端原生混合检索（稠密 + BM25 稀疏 + RRF）
+      # false = 纯稠密检索（用于"混合 vs 稠密"对照；评测用 --rag.search.hybrid.enabled=false 覆盖）
       enabled: true
-      # milvus = 服务端原生混合检索(稠密+BM25稀疏+RRF)；local = 进程内 BM25 通道(A/B 对照用)
-      provider: milvus
-      lexical-top-k: 20
-      max-candidates: 50
-      rescue-count: 3
-      index-ttl-seconds: 300
   agent:
     search:
       top-k: 50

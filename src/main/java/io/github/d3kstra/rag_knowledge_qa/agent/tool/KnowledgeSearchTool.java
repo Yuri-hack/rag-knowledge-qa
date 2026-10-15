@@ -71,10 +71,9 @@ public class KnowledgeSearchTool implements Tool {
         StringBuilder sb = new StringBuilder("【检索结果】共 ").append(results.size()).append(" 条：\n");
         int i = 1;
         for (KnowledgeSearchResult r : results) {
-            // 不把内部分数暴露给模型：provider=local 时它是稠密余弦（0~1），
-            // provider=milvus 时它是 RRF 融合分（0.01~0.05）；量级差十倍，
-            // 而模型会据此判断"是否相关"（覆盖性自检）。语义不可比的分数量化只会误导，
-            // 需要的是内容与来源。见 docs/milvus-2.5-upgrade-checklist.md 迁移实施记录。
+            // 不把内部分数暴露给模型：混合检索下它是 RRF 融合分（0.01~0.05），纯稠密下是余弦（0~1），
+            // 两种量纲不可比，而模型会据此判断"是否相关"（覆盖性自检）→ 语义不可比的分数量化只会误导，
+            // 模型需要的是内容与来源。见 docs/milvus-2.5-upgrade-checklist.md 迁移实施记录。
             sb.append("【").append(i++).append("】《").append(r.getFileName())
                     .append("》 documentId=").append(r.getDocumentId())
                     .append(" chunk#").append(r.getChunkIndex());

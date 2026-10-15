@@ -1,6 +1,5 @@
 package io.github.d3kstra.rag_knowledge_qa.controller;
 
-import io.github.d3kstra.rag_knowledge_qa.lexical.LexicalIndexService;
 
 import io.github.d3kstra.rag_knowledge_qa.dto.internal.KnowledgeSearchResult;
 import io.github.d3kstra.rag_knowledge_qa.dto.request.SearchRequest;
@@ -24,24 +23,12 @@ import java.util.List;
 public class KnowledgeBaseController {
 
     private final KnowledgeBaseService knowledgeBaseService;
-    private final LexicalIndexService lexicalIndexService;
 
     @PostMapping("/upload")
     public ApiResponse<String> uploadFile(@ModelAttribute FileUploadRequest request) {
         try {
             String documentId = knowledgeBaseService.uploadAndProcessFile(request);
             return ApiResponse.success("文件上传处理成功", documentId);
-        } catch (Exception e) {
-            return ApiResponse.error(e.getMessage());
-        }
-    }
-
-    /** 重建词法索引（上传语料后调用；正常靠 TTL 自动重建） */
-    @PostMapping("/lexical/rebuild")
-    public ApiResponse<Integer> rebuildLexicalIndex() {
-        try {
-            lexicalIndexService.rebuild();
-            return ApiResponse.success("词法索引重建完成", lexicalIndexService.indexedChunkCount());
         } catch (Exception e) {
             return ApiResponse.error(e.getMessage());
         }

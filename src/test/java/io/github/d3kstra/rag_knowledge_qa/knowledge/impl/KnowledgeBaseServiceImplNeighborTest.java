@@ -4,7 +4,6 @@ import io.github.d3kstra.rag_knowledge_qa.dto.internal.KnowledgeSearchResult;
 import io.github.d3kstra.rag_knowledge_qa.document.FileProcessorFactory;
 import io.github.d3kstra.rag_knowledge_qa.embed.EmbeddingService;
 import io.github.d3kstra.rag_knowledge_qa.entity.DocumentChunk;
-import io.github.d3kstra.rag_knowledge_qa.lexical.LexicalIndexService;
 import io.github.d3kstra.rag_knowledge_qa.rerank.RerankerService;
 import io.github.d3kstra.rag_knowledge_qa.repository.DocumentChunkRepository;
 import io.github.d3kstra.rag_knowledge_qa.repository.UploadedDocumentRepository;
@@ -44,7 +43,6 @@ class KnowledgeBaseServiceImplNeighborTest {
     @Mock private DocumentChunkRepository chunkRepository;
     @Mock private UploadedDocumentRepository documentRepository;
     @Mock private RerankerService rerankerService;
-    @Mock private LexicalIndexService lexicalIndexService;
 
     @InjectMocks private KnowledgeBaseServiceImpl service;
 
